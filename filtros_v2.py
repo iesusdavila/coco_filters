@@ -1,69 +1,110 @@
 import cv2
 import numpy as np
 
-class Filtro:
-    def __init__(self, cascade_path, imagenes):
+class Filter:
+    def __init__(self, cascade_path, images):
+        """
+        Initialize the Filter class with a face cascade and a list of images.
+
+        :param cascade_path: Path to the Haar cascade file for face detection.
+        :param images: List of image file paths to be used as filters.
+        """
         self.face_cascade = cv2.CascadeClassifier(cascade_path)
-        self.imagenes = [cv2.imread(img, cv2.IMREAD_UNCHANGED) for img in imagenes]
-        self.indice_actual = 0
-        self.historial_rostros = []
-    
-    def cambiar_filtro(self, direccion):
-        """Cambia el filtro según la dirección (1: siguiente, -1: anterior)."""
-        self.indice_actual = (self.indice_actual + direccion) % len(self.imagenes)
-    
-    def aplicar_filtro(self, frame):
+        self.images = [cv2.imread(img, cv2.IMREAD_UNCHANGED) for img in images]
+        self.current_index = 0
+        self.face_history = []
+
+    def change_filter(self, direction):
+        """
+        Change the current filter based on the direction.
+
+        :param direction: Direction to change the filter (1 for next, -1 for previous).
+        """
+        self.current_index = (self.current_index + direction) % len(self.images)
+
+    def apply_filter(self, frame):
+        """
+        Apply the current filter to the given frame.
+
+        :param frame: The video frame to which the filter will be applied.
+        :return: The frame with the filter applied.
+        """
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-        rostros = self.face_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5, minSize=(30, 30))
+        faces = self.face_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5, minSize=(30, 30))
 
-        if len(rostros) > 0:
-            self.historial_rostros.append(rostros)
+        if len(faces) > 0:
+            self.face_history.append(faces)
         else:
-            self.historial_rostros.append([])
+            self.face_history.append([])
 
-        if len(self.historial_rostros) > 5:
-            self.historial_rostros.pop(0)
+        if len(self.face_history) > 5:
+            self.face_history.pop(0)
 
-        rostros_suavizados = [
-            tuple(np.mean([r[i] for r in self.historial_rostros if len(r) > i], axis=0).astype(int))
-            for i in range(len(rostros))
+        smooth_faces = [
+            tuple(np.mean([r[i] for r in self.face_history if len(r) > i], axis=0).astype(int))
+            for i in range(len(faces))
         ]
 
-        for (x, y, w, h) in rostros_suavizados:
+        for (x, y, w, h) in smooth_faces:
             cv2.rectangle(frame, (x, y), (x + w, y + h), (255, 0, 0), 2)
-            self.agregar_sobre(frame, x, y, w, h)
+            self.add_about(frame, x, y, w, h)
 
         return frame
 
-    def agregar_sobre(self, frame, x, y, w, h):
-        """Este método debe ser implementado por cada tipo de filtro."""
+    def add_about(self, frame, x, y, w, h):
+        """
+        Abstract method to add specific filter details to the frame.
+
+        :param frame: The video frame to which the filter details will be added.
+        :param x: The x-coordinate of the detected face.
+        :param y: The y-coordinate of the detected face.
+        :param w: The width of the detected face.
+        :param h: The height of the detected face.
+        """
         raise NotImplementedError
 
 
-class SombreroFiltro(Filtro):
-    def agregar_sobre(self, frame, x, y, w, h):
-        imagen_sombrero = self.imagenes[self.indice_actual]
+class HatFilter(Filter):
+    def add_about(self, frame, x, y, w, h):
+        """
+        Add a hat filter to the detected face in the frame.
+
+        :param frame: The video frame to which the hat filter will be added.
+        :param x: The x-coordinate of the detected face.
+        :param y: The y-coordinate of the detected face.
+        :param w: The width of the detected face.
+        :param h: The height of the detected face.
+        """
+        hat_image = self.images[self.current_index]
         
-        if imagen_sombrero is None:
+        if hat_image is None:
             return
 
-        sombrero_ancho = w
-        sombrero_alto = int(w * imagen_sombrero.shape[0] / imagen_sombrero.shape[1])
-        sombrero_y = max(y - sombrero_alto, 0)
+        hat_width = w
+        hat_height = int(w * hat_image.shape[0] / hat_image.shape[1])
+        hat_y = max(y - hat_height, 0)
 
-        sombrero_redimensionado = cv2.resize(imagen_sombrero, (sombrero_ancho, sombrero_alto))
+        resized_hat = cv2.resize(hat_image, (hat_width, hat_height))
         
-        max_sombrero_height = int(h * 0.5)
-        if sombrero_redimensionado.shape[0] > max_sombrero_height:
-            sombrero_redimensionado = cv2.resize(sombrero_redimensionado, (w, max_sombrero_height))
+        max_hat_height = int(h * 0.5)
+        if resized_hat.shape[0] > max_hat_height:
+            resized_hat = cv2.resize(resized_hat, (w, max_hat_height))
 
-        sombrero_y = y - sombrero_redimensionado.shape[0]
-        if sombrero_y < 0:
-            sombrero_y = 0
+        hat_y = y - resized_hat.shape[0]
+        if hat_y < 0:
+            hat_y = 0
 
-        self.overlay_transparente(frame, sombrero_redimensionado, x, sombrero_y)
+        self.overlay_transparent(frame, resized_hat, x, hat_y)
 
-    def overlay_transparente(self, fondo, overlay, x, y):
+    def overlay_transparent(self, fondo, overlay, x, y):
+        """
+        Overlay a transparent image on the background frame.
+
+        :param fondo: The background frame.
+        :param overlay: The transparent image to overlay.
+        :param x: The x-coordinate where the overlay will be placed.
+        :param y: The y-coordinate where the overlay will be placed.
+        """
         h, w, _ = overlay.shape
         bh, bw, _ = fondo.shape
 
@@ -77,7 +118,12 @@ class SombreroFiltro(Filtro):
             )
 
 
-def main(filtros):
+def main(filters):
+    """
+    Main function to capture video and apply filters.
+
+    :param filters: List of filter objects to be applied to the video frames.
+    """
     cap = cv2.VideoCapture(0)
 
     while True:
@@ -85,28 +131,28 @@ def main(filtros):
         if not ret:
             break
 
-        for filtro in filtros:
-            frame = filtro.aplicar_filtro(frame)
+        for filter in filters:
+            frame = filter.apply_filter(frame)
 
-        cv2.imshow("Filtros", frame)
+        cv2.imshow("filters", frame)
         
         key = cv2.waitKey(50) & 0xFF
         if key == ord('q'):
             break
         elif key == ord('d'):
-            for filtro in filtros:
-                filtro.cambiar_filtro(1)
+            for filter in filters:
+                filter.change_filter(1)
         elif key == ord('a'):
-            for filtro in filtros:
-                filtro.cambiar_filtro(-1)
+            for filter in filters:
+                filter.change_filter(-1)
 
     cap.release()
     cv2.destroyAllWindows()
 
 
 if __name__ == "__main__":
-    ruta_cascade = "/home/iesus_robot/opencv/data/haarcascades/haarcascade_frontalface_alt2.xml"
-    imagenes_sombrero = ["imgs/hats/hat1.png", "imgs/hats/hat2.png", "imgs/hats/hat3.png", 
+    cascade_route = "/home/iesus_robot/opencv/data/haarcascades/haarcascade_frontalface_alt2.xml"
+    images_hat = ["imgs/hats/hat1.png", "imgs/hats/hat2.png", "imgs/hats/hat3.png", 
         "imgs/hats/hat4.png", "imgs/hats/hat5.png", "imgs/hats/hat6.png", 
         "imgs/hats/hat7.png", "imgs/hats/hat8.png", "imgs/hats/hat9.png",
         "imgs/hats/hat10.png", "imgs/hats/hat11.png", "imgs/hats/hat12.png",
@@ -116,5 +162,5 @@ if __name__ == "__main__":
         "imgs/hats/hat22.png", "imgs/hats/hat23.png", "imgs/hats/hat24.png",
         "imgs/hats/hat25.png", "imgs/hats/hat26.png"]
     
-    sombrero_filtro = SombreroFiltro(ruta_cascade, imagenes_sombrero)
-    main([sombrero_filtro])
+    filter_hat = HatFilter(cascade_route, images_hat)
+    main([filter_hat])
