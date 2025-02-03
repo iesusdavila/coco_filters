@@ -96,25 +96,25 @@ class HatFilter(Filter):
 
         self.overlay_transparent(frame, resized_hat, x, hat_y)
 
-    def overlay_transparent(self, fondo, overlay, x, y):
+    def overlay_transparent(self, background, overlay, x, y):
         """
         Overlay a transparent image on the background frame.
 
-        :param fondo: The background frame.
+        :param background: The background frame.
         :param overlay: The transparent image to overlay.
         :param x: The x-coordinate where the overlay will be placed.
         :param y: The y-coordinate where the overlay will be placed.
         """
         h, w, _ = overlay.shape
-        bh, bw, _ = fondo.shape
+        bh, bw, _ = background.shape
 
         if x + w > bw or y + h > bh:
             return
 
         alpha_overlay = overlay[:, :, 3] / 255.0
         for c in range(3):
-            fondo[y:y+h, x:x+w, c] = (
-                alpha_overlay * overlay[:, :, c] + (1 - alpha_overlay) * fondo[y:y+h, x:x+w, c]
+            background[y:y+h, x:x+w, c] = (
+                alpha_overlay * overlay[:, :, c] + (1 - alpha_overlay) * background[y:y+h, x:x+w, c]
             )
 
 
