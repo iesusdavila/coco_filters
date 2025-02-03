@@ -3,8 +3,16 @@ import numpy as np
 
 class SombreroFiltro:
     def __init__(self):
-        self.face_cascade = cv2.CascadeClassifier('/home/iesus_robot/opencv/data/haarcascades/haarcascade_frontalface_alt.xml')
-        self.sombrero_paths = ["imgs/hats/hat1.png", "imgs/hats/hat2.png", "imgs/hats/hat3.png", "imgs/hats/hat4.png"]
+        self.face_cascade = cv2.CascadeClassifier('/home/iesus_robot/opencv/data/haarcascades/haarcascade_frontalface_alt2.xml')
+        self.sombrero_paths = ["imgs/hats/hat1.png", "imgs/hats/hat2.png", "imgs/hats/hat3.png", 
+                                "imgs/hats/hat4.png", "imgs/hats/hat5.png", "imgs/hats/hat6.png", 
+                                "imgs/hats/hat7.png", "imgs/hats/hat8.png", "imgs/hats/hat9.png",
+                                "imgs/hats/hat10.png", "imgs/hats/hat11.png", "imgs/hats/hat12.png",
+                                "imgs/hats/hat13.png", "imgs/hats/hat14.png", "imgs/hats/hat15.png",
+                                "imgs/hats/hat16.png", "imgs/hats/hat17.png", "imgs/hats/hat18.png",
+                                "imgs/hats/hat19.png", "imgs/hats/hat20.png", "imgs/hats/hat21.png",
+                                "imgs/hats/hat22.png", "imgs/hats/hat23.png", "imgs/hats/hat24.png",
+                                "imgs/hats/hat25.png", "imgs/hats/hat26.png"]
         self.sombrero_imgs = [cv2.imread(path, cv2.IMREAD_UNCHANGED) for path in self.sombrero_paths]
         self.current_sombrero_index = 1
         self.sombrero_img, self.alpha = self.cargar_sombrero(self.current_sombrero_index)
@@ -33,10 +41,12 @@ class SombreroFiltro:
             rostros_suavizados.append((x, y, w, h))
 
         for (x, y, w, h) in rostros_suavizados:
+            frame = cv2.rectangle(frame, (x, y), (x + w, y + h), (255, 0, 0), 2)
+            
             sombrero_resized = cv2.resize(self.sombrero_img, (w, int(w * self.sombrero_img.shape[0] / self.sombrero_img.shape[1])))
             alpha_resized = cv2.resize(self.alpha, (w, int(w * self.alpha.shape[0] / self.alpha.shape[1])))
 
-            max_sombrero_height = int(h * 0.6)
+            max_sombrero_height = int(h * 0.5)
             if sombrero_resized.shape[0] > max_sombrero_height:
                 sombrero_resized = cv2.resize(sombrero_resized, (w, max_sombrero_height))
                 alpha_resized = cv2.resize(alpha_resized, (w, max_sombrero_height))
