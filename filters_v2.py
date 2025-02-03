@@ -13,6 +13,7 @@ class Filter:
         self.images = [cv2.imread(img, cv2.IMREAD_UNCHANGED) for img in images]
         self.current_index_hat = 0
         self.current_index_moustache = 0
+        self.current_index_glasses = 0
         self.face_history = []
 
     def change_filter(self, filter, direction):
@@ -25,6 +26,8 @@ class Filter:
             self.current_index_hat = (self.current_index_hat + direction) % len(self.images)
         elif filter == "moustache":
             self.current_index_moustache = (self.current_index_moustache + direction) % len(self.images)
+        elif filter == "glasses":
+            self.current_index_glasses = (self.current_index_glasses + direction) % len(self.images)
 
     def apply_filter(self, frame):
         """
@@ -173,6 +176,59 @@ class MoustacheFilter(Filter):
                 alpha_overlay * overlay[:, :, c] + alpha_background * background[y:y+h, x:x+w, c]
             )
 
+class GlassesFilter(Filter):
+    def add_about(self, frame, x, y, w, h):
+        """
+        Add a glasses filter to the detected face in the frame.
+
+        :param frame: The video frame to which the glasses filter will be added.
+        :param x: The x-coordinate of the detected face.
+        :param y: The y-coordinate of the detected face.
+        :param w: The width of the detected face.
+        :param h: The height of the detected face.
+        """
+        glasses_image = self.images[self.current_index_glasses]
+
+        if glasses_image is None:
+            return
+
+        glasses_width = int(w * 0.7)
+        glasses_height = int(glasses_width * glasses_image.shape[0] / glasses_image.shape[1])
+
+        glasses_x = x + int(w * 0.15)  # Centrado en la cara
+        glasses_y = y # Alineadas sobre los ojos
+
+        glasses_x = max(0, min(glasses_x, frame.shape[1] - glasses_width))
+        glasses_y = max(0, min(glasses_y, frame.shape[0] - glasses_height))
+
+        resized_glasses = cv2.resize(glasses_image, (glasses_width, glasses_height))
+
+        self.overlay_transparent(frame, resized_glasses, glasses_x, glasses_y)
+
+    def overlay_transparent(self, background, overlay, x, y):
+        """
+        Overlay a transparent image on the background frame.
+
+        :param background: The background frame.
+        :param overlay: The transparent image to overlay.
+        :param x: The x-coordinate where the overlay will be placed.
+        :param y: The y-coordinate where the overlay will be placed.
+        """
+        h, w, _ = overlay.shape
+        bh, bw, _ = background.shape
+
+        if x + w > bw or y + h > bh:
+            return
+
+        alpha_overlay = overlay[:, :, 3] / 255.0
+        alpha_background = 1.0 - alpha_overlay
+
+        for c in range(3):
+            background[y:y+h, x:x+w, c] = (
+                alpha_overlay * overlay[:, :, c] + alpha_background * background[y:y+h, x:x+w, c]
+            )
+
+
 def main(filters):
     """
     Main function to capture video and apply filters.
@@ -206,6 +262,12 @@ def main(filters):
         elif key == ord('s'):
             for filter in filters:
                 filter.change_filter(filter="moustache",direction=-1)
+        elif key == ord('r'):
+            for filter in filters:
+                filter.change_filter(filter="glasses",direction=1)
+        elif key == ord('e'):
+            for filter in filters:
+                filter.change_filter(filter="glasses",direction=-1)
 
     cap.release()
     cv2.destroyAllWindows()
@@ -225,8 +287,15 @@ if __name__ == "__main__":
 
     images_moustache = ["imgs/moustache/moustache1.png", "imgs/moustache/moustache2.png", "imgs/moustache/moustache3.png",
                        "imgs/moustache/moustache4.png", "imgs/moustache/moustache5.png", "imgs/moustache/moustache6.png",]
+
+    images_glasses = ["imgs/glasses/sunglass1.png", "imgs/glasses/sunglass2.png", "imgs/glasses/sunglass3.png",
+                        "imgs/glasses/sunglass4.png", "imgs/glasses/sunglass5.png", "imgs/glasses/sunglass6.png",
+                        "imgs/glasses/sunglass7.png", "imgs/glasses/sunglass8.png", "imgs/glasses/sunglass9.png",
+                        "imgs/glasses/sunglass10.png", "imgs/glasses/sunglass11.png", "imgs/glasses/sunglass12.png",
+                        "imgs/glasses/sunglass13.png", "imgs/glasses/sunglass14.png", "imgs/glasses/sunglass15.png",]
     
     filter_hat = HatFilter(cascade_route, images_hat)
     filter_moustache = MoustacheFilter(cascade_route, images_moustache)
+    filter_glasses = GlassesFilter(cascade_route, images_glasses)
 
-    main([filter_hat, filter_moustache])
+    main([filter_hat, filter_moustache, filter_glasses])
