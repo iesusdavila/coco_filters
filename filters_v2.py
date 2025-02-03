@@ -11,16 +11,20 @@ class Filter:
         """
         self.face_cascade = cv2.CascadeClassifier(cascade_path)
         self.images = [cv2.imread(img, cv2.IMREAD_UNCHANGED) for img in images]
-        self.current_index = 0
+        self.current_index_hat = 0
+        self.current_index_moustache = 0
         self.face_history = []
 
-    def change_filter(self, direction):
+    def change_filter(self, filter, direction):
         """
         Change the current filter based on the direction.
 
         :param direction: Direction to change the filter (1 for next, -1 for previous).
         """
-        self.current_index = (self.current_index + direction) % len(self.images)
+        if filter == "hat":
+            self.current_index_hat = (self.current_index_hat + direction) % len(self.images)
+        elif filter == "moustache":
+            self.current_index_moustache = (self.current_index_moustache + direction) % len(self.images)
 
     def apply_filter(self, frame):
         """
@@ -75,7 +79,7 @@ class HatFilter(Filter):
         :param w: The width of the detected face.
         :param h: The height of the detected face.
         """
-        hat_image = self.images[self.current_index]
+        hat_image = self.images[self.current_index_hat]
         
         if hat_image is None:
             return
@@ -117,6 +121,57 @@ class HatFilter(Filter):
                 alpha_overlay * overlay[:, :, c] + (1 - alpha_overlay) * background[y:y+h, x:x+w, c]
             )
 
+class MoustacheFilter(Filter):
+    def add_about(self, frame, x, y, w, h):
+        """
+        Add a moustache filter to the detected face in the frame.
+
+        :param frame: The video frame to which the moustache filter will be added.
+        :param x: The x-coordinate of the detected face.
+        :param y: The y-coordinate of the detected face.
+        :param w: The width of the detected face.
+        :param h: The height of the detected face.
+        """
+        moustache_image = self.images[self.current_index_moustache]
+
+        if moustache_image is None:
+            return
+
+        moustache_width = int(w * 0.30)
+        moustache_height = int(moustache_width * moustache_image.shape[0] / moustache_image.shape[1])
+
+        moustache_x = x + int(w * 0.35) # 0.275 es un factor de ajuste
+        moustache_y = y + int(h * 0.63) # 0.6 es un factor de ajuste
+
+        moustache_x = max(0, min(moustache_x, frame.shape[1] - moustache_width))
+        moustache_y = max(0, min(moustache_y, frame.shape[0] - moustache_height))
+
+        resized_moustache = cv2.resize(moustache_image, (moustache_width, moustache_height))
+
+        self.overlay_transparent(frame, resized_moustache, moustache_x, moustache_y)
+
+    def overlay_transparent(self, background, overlay, x, y):
+        """
+        Overlay a transparent image on the background frame.
+
+        :param background: The background frame.
+        :param overlay: The transparent image to overlay.
+        :param x: The x-coordinate where the overlay will be placed.
+        :param y: The y-coordinate where the overlay will be placed.
+        """
+        h, w, _ = overlay.shape
+        bh, bw, _ = background.shape
+
+        if x + w > bw or y + h > bh:
+            return
+
+        alpha_overlay = overlay[:, :, 3] / 255.0
+        alpha_background = 1.0 - alpha_overlay
+
+        for c in range(3):
+            background[y:y+h, x:x+w, c] = (
+                alpha_overlay * overlay[:, :, c] + alpha_background * background[y:y+h, x:x+w, c]
+            )
 
 def main(filters):
     """
@@ -141,10 +196,16 @@ def main(filters):
             break
         elif key == ord('d'):
             for filter in filters:
-                filter.change_filter(1)
+                filter.change_filter(filter="hat",direction=1)
         elif key == ord('a'):
             for filter in filters:
-                filter.change_filter(-1)
+                filter.change_filter(filter="hat",direction=-1)
+        elif key == ord('w'):
+            for filter in filters:
+                filter.change_filter(filter="moustache",direction=1)
+        elif key == ord('s'):
+            for filter in filters:
+                filter.change_filter(filter="moustache",direction=-1)
 
     cap.release()
     cv2.destroyAllWindows()
@@ -161,6 +222,11 @@ if __name__ == "__main__":
         "imgs/hats/hat19.png", "imgs/hats/hat20.png", "imgs/hats/hat21.png",
         "imgs/hats/hat22.png", "imgs/hats/hat23.png", "imgs/hats/hat24.png",
         "imgs/hats/hat25.png", "imgs/hats/hat26.png"]
+
+    images_moustache = ["imgs/moustache/moustache1.png", "imgs/moustache/moustache2.png", "imgs/moustache/moustache3.png",
+                       "imgs/moustache/moustache4.png", "imgs/moustache/moustache5.png", "imgs/moustache/moustache6.png",]
     
     filter_hat = HatFilter(cascade_route, images_hat)
-    main([filter_hat])
+    filter_moustache = MoustacheFilter(cascade_route, images_moustache)
+
+    main([filter_hat, filter_moustache])
