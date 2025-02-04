@@ -1,5 +1,6 @@
 import cv2
 import numpy as np
+import time
 
 class Filter:
     def __init__(self, cascade_path, images):
@@ -235,8 +236,20 @@ def main(filters):
 
     :param filters: List of filter objects to be applied to the video frames.
     """
-    cap = cv2.VideoCapture(0)
+    #cap = cv2.VideoCapture(0)
+    GSTREAMER_PIPELINE = (
+        "v4l2src device=/dev/video0 ! video/x-raw, width=640, height=480, framerate=30/1 ! "
+        "videoconvert ! video/x-raw, format=BGR ! appsink"
+    )
 
+    cap = cv2.VideoCapture(GSTREAMER_PIPELINE, cv2.CAP_GSTREAMER)
+
+    #cap = cv2.VideoCapture(0)
+    #cap.set(cv2.CAP_PROP_FPS, 30)
+    cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*'YUYV'))
+
+    prev_time = 0
+    
     while True:
         ret, frame = cap.read()
         if not ret:
@@ -244,6 +257,13 @@ def main(filters):
 
         for filter in filters:
             frame = filter.apply_filter(frame)
+
+        curr_time = time.time()
+        fps = 1 / (curr_time - prev_time) if prev_time != 0 else 0
+        prev_time = curr_time
+
+        cv2.putText(frame, f'FPS: {int(fps)}', (10, 30),
+                cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2, cv2.LINE_AA)
 
         cv2.imshow("filters", frame)
         
