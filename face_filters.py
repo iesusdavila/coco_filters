@@ -327,6 +327,130 @@ class NoseFilter(FaceFilter):
         bg[y1:y2, x1:x2] = (bg_region * (1 - alpha) + overlay_cropped[..., :3] * alpha).astype(np.uint8)
         return bg
 
+
+# ----------------------------
+# Filtro para boca
+# ----------------------------
+class MouthFilter(FaceFilter):
+    def __init__(self, assets_path):
+        super().__init__(assets_path)
+        self.required_landmarks = [
+            61, 291,  # Esquinas de la boca
+            13, 14,   # Línea media labial
+            78, 308,  # Contorno superior labio
+            37, 267,  # Contorno inferior labio
+        ]
+
+    def rotate_image(self, image, angle):
+        """Rotación manteniendo transparencia"""
+        h, w = image.shape[:2]
+        center = (w // 2, h // 2)
+        rot_mat = cv2.getRotationMatrix2D(center, angle, 1.0)
+        cos = np.abs(rot_mat[0, 0])
+        sin = np.abs(rot_mat[0, 1])
+        new_w = int((h * sin) + (w * cos))
+        new_h = int((h * cos) + (w * sin))
+        rot_mat[0, 2] += (new_w - w) // 2
+        rot_mat[1, 2] += (new_h - h) // 2
+        return cv2.warpAffine(image, rot_mat, (new_w, new_h),
+                              flags=cv2.INTER_LINEAR,
+                              borderMode=cv2.BORDER_CONSTANT,
+                              borderValue=(0, 0, 0, 0))
+
+    def apply_filter(self, frame, face_landmarks, frame_size):
+        if not self.assets or not face_landmarks:
+            return frame
+
+        try:
+            h, w = frame_size
+            landmarks = face_landmarks.landmark
+
+            # Puntos clave de la boca
+            left_corner = (int(landmarks[61].x * w), int(landmarks[61].y * h))
+            right_corner = (int(landmarks[291].x * w), int(landmarks[291].y * h))
+            upper_lip = (int(landmarks[0].x * w), int(landmarks[0].y * h))
+            lower_lip = (int(landmarks[17].x * w), int(landmarks[17].y * h))
+
+            # Calcular tamaño y posición de la boca
+            mouth_width = abs(right_corner[0] - left_corner[0])
+            mouth_height = abs(lower_lip[1] - upper_lip[1])
+
+            if mouth_width == 0 or mouth_height == 0:
+                return frame
+
+            # Cargar el asset actual
+            mouth_asset = self.assets[self.current_asset_idx]
+
+            # Redimensionar el asset según el tamaño de la boca
+            aspect_ratio = mouth_asset.shape[0] / mouth_asset.shape[1]
+            target_width = int(mouth_width)
+            target_height = int(target_width * aspect_ratio)
+            resized_asset = cv2.resize(mouth_asset, (target_width, target_height))
+
+            # Calcular ángulo de rotación basado en la inclinación de la boca
+            dx = right_corner[0] - left_corner[0]
+            dy = right_corner[1] - left_corner[1]
+            angle = -np.degrees(np.arctan2(dy, dx))
+
+            # Rotar el asset
+            rotated_asset = self.rotate_image(resized_asset, angle)
+
+            # Posicionamiento centrado en la boca
+            center_x = (left_corner[0] + right_corner[0]) // 2 - rotated_asset.shape[1] // 2
+            center_y = (upper_lip[1] + lower_lip[1]) // 2 - rotated_asset.shape[0] // 2
+
+            # Validar posición dentro del frame
+            if not self._validate_position(center_x, center_y, rotated_asset.shape, w, h):
+                return frame
+
+            # Superposición del filtro en el frame
+            return self.optimized_overlay(frame, rotated_asset, center_x, center_y)
+
+        except (IndexError, cv2.error) as e:
+            print(f"Error en filtro bucal: {str(e)}")
+            return frame
+
+    def _validate_position(self, x, y, shape, img_w, img_h):
+        """Valida que el filtro esté dentro de los límites faciales razonables"""
+        h_asset, w_asset = shape[:2]
+        return (
+            x > -w_asset * 0.2 and
+            y > -h_asset * 0.2 and
+            x + w_asset < img_w * 1.2 and
+            y + h_asset < img_h * 1.2 and
+            w_asset > 10 and  # Tamaño mínimo
+            h_asset > 10
+        )
+
+    def optimized_overlay(self, bg, overlay, x, y):
+        """Superposición optimizada con manejo de bordes"""
+        h_ov, w_ov = overlay.shape[:2]
+        bg_h, bg_w = bg.shape[:2]
+
+        # Región de interés en el fondo
+        y1, y2 = max(y, 0), min(y + h_ov, bg_h)
+        x1, x2 = max(x, 0), min(x + w_ov, bg_w)
+
+        # Región correspondiente en el overlay
+        ov_y1 = max(0, -y)
+        ov_y2 = min(h_ov, bg_h - y)
+        ov_x1 = max(0, -x)
+        ov_x2 = min(w_ov, bg_w - x)
+
+        # Validar áreas superponibles
+        if ov_x1 >= ov_x2 or ov_y1 >= ov_y2:
+            return bg
+
+        # Extraer canales alpha
+        overlay_cropped = overlay[ov_y1:ov_y2, ov_x1:ov_x2]
+        alpha = overlay_cropped[..., 3:] / 255.0
+        bg_region = bg[y1:y2, x1:x2]
+
+        # Mezclar imágenes
+        bg[y1:y2, x1:x2] = (bg_region * (1 - alpha) + overlay_cropped[..., :3] * alpha).astype(np.uint8)
+        return bg
+
+
 # ----------------------------
 # Sistema principal
 # ----------------------------
@@ -349,9 +473,10 @@ class FaceFilterSystem:
         self.active_filters = {
             'glasses': GlassesFilter("imgs/glasses/"),
             'hat': HatFilter("imgs/hats/"),
-            'nose': NoseFilter("imgs/noses/")
+            'nose': NoseFilter("imgs/noses/"),
+            'mouth': MouthFilter("imgs/mouths/")
         }
-        self.current_filter = 'nose'
+        self.current_filter = 'mouth'
         self.prev_time = time.time()
         self.frame_count = 0
 
