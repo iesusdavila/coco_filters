@@ -4,11 +4,17 @@ import cv2
 from utils.Filters import GlassesFilter, HatFilter, NoseFilter, MouthFilter, FaceMaskFilter
 
 class FaceFilterSystem:
+    """
+    A system to apply various face filters using Mediapipe and OpenCV.
+    """
     def __init__(self):
+        """
+        Initialize the FaceFilterSystem with video capture and face mesh detection.
+        """
         self.cap = cv2.VideoCapture(0)
         self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
         self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
-        self.cap.set(cv2.CAP_PROP_FOURCC,cv2.VideoWriter_fourcc(*'MJPG'))    
+        self.cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*'MJPG'))    
 
         self.face_mesh = mp.solutions.face_mesh.FaceMesh(
             static_image_mode=False,
@@ -29,6 +35,12 @@ class FaceFilterSystem:
         self.frame_count = 0
 
     def process_frame(self):
+        """
+        Process a single frame from the video capture, apply active filters, and calculate FPS.
+        
+        Returns:
+            frame (ndarray): The processed frame with filters applied.
+        """
         success, frame = self.cap.read()
         if not success:
             return None
@@ -37,13 +49,13 @@ class FaceFilterSystem:
         frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         results = self.face_mesh.process(frame_rgb)
         
-        # Procesar todos los filtros
+        # Process all filters
         if results.multi_face_landmarks:
             for face_landmarks in results.multi_face_landmarks:
                 for filter_name, filter_obj in self.active_filters.items():
                     frame = filter_obj.apply_filter(frame, face_landmarks, frame.shape[:2])
         
-        # Mostrar FPS
+        # Display FPS
         curr_time = time.time()
         fps = 1 / (curr_time - self.prev_time)
         self.prev_time = curr_time
@@ -53,6 +65,9 @@ class FaceFilterSystem:
         return frame
 
     def run(self):
+        """
+        Run the main loop to capture video frames, process them, and display the results.
+        """
         while self.cap.isOpened():
             frame = self.process_frame()
             if frame is None:
@@ -61,7 +76,7 @@ class FaceFilterSystem:
             cv2.imshow('Face Filters', frame)
             key = cv2.waitKey(1) & 0xFF
             
-            # Navegación entre assets
+            # Navigation between assets
             if key == ord('e') and not self.is_face_selected:
                 self.active_filters['hat'].current_asset_idx = (
                     self.active_filters['hat'].current_asset_idx + 1) % len(
@@ -121,7 +136,7 @@ class FaceFilterSystem:
         self.cap.release()
         cv2.destroyAllWindows()
 
-# Ejecutar sistema
+# Run the system
 if __name__ == "__main__":
     system = FaceFilterSystem()
     system.run()
