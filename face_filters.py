@@ -26,6 +26,26 @@ class FaceFilter:
         """Método abstracto para aplicar el filtro"""
         raise NotImplementedError("Debe implementarse en subclases")
 
+    def optimized_overlay(self, bg, overlay, x, y):
+        """Superposición vectorizada con NumPy"""
+        h_overlay, w_overlay = overlay.shape[:2]
+        
+        # Regiones de interés
+        y1, y2 = max(y, 0), min(y + h_overlay, bg.shape[0])
+        x1, x2 = max(x, 0), min(x + w_overlay, bg.shape[1])
+        
+        if x1 >= x2 or y1 >= y2: 
+            return bg
+
+        # Extraer canales alpha
+        overlay_region = overlay[y1-y:y2-y, x1-x:x2-x]
+        alpha = overlay_region[..., 3:] / 255.0
+        bg_region = bg[y1:y2, x1:x2]
+
+        # Mezclar imágenes
+        bg[y1:y2, x1:x2] = (bg_region * (1 - alpha) + overlay_region[..., :3] * alpha).astype(np.uint8)
+        return bg
+
 # ----------------------------
 # Filtro para gafas con rotación
 # ----------------------------
@@ -84,31 +104,10 @@ class GlassesFilter(FaceFilter):
             center_y = (y1 + y2)//2 - rotated.shape[0]//2
             
             # Superposición optimizada
-            return self.optimized_overlay(frame, rotated, center_x, center_y)
+            return super().optimized_overlay(frame, rotated, center_x, center_y)
         
         except (IndexError, cv2.error):
             return frame
-
-    def optimized_overlay(self, bg, overlay, x, y):
-        """Superposición vectorizada con NumPy"""
-        h_overlay, w_overlay = overlay.shape[:2]
-        
-        # Regiones de interés
-        y1, y2 = max(y, 0), min(y + h_overlay, bg.shape[0])
-        x1, x2 = max(x, 0), min(x + w_overlay, bg.shape[1])
-        
-        if x1 >= x2 or y1 >= y2: 
-            return bg
-
-        # Extraer canales alpha
-        overlay_region = overlay[y1-y:y2-y, x1-x:x2-x]
-        alpha = overlay_region[..., 3:] / 255.0
-        bg_region = bg[y1:y2, x1:x2]
-
-        # Mezclar imágenes
-        bg[y1:y2, x1:x2] = (bg_region * (1 - alpha) + overlay_region[..., :3] * alpha).astype(np.uint8)
-        return bg
-
 
 # ----------------------------
 # Filtro para sombreros
@@ -168,31 +167,10 @@ class HatFilter(FaceFilter):
             center_y = (y1 + y2)//2 - rotated.shape[0]//2 - hat_height//3
             
             # Superposición optimizada
-            return self.optimized_overlay(frame, rotated, center_x, center_y)
+            return super().optimized_overlay(frame, rotated, center_x, center_y)
         
         except (IndexError, cv2.error):
             return frame
-
-    def optimized_overlay(self, bg, overlay, x, y):
-        """Superposición vectorizada con NumPy"""
-        h_overlay, w_overlay = overlay.shape[:2]
-        
-        # Regiones de interés
-        y1, y2 = max(y, 0), min(y + h_overlay, bg.shape[0])
-        x1, x2 = max(x, 0), min(x + w_overlay, bg.shape[1])
-        
-        if x1 >= x2 or y1 >= y2: 
-            return bg
-
-        # Extraer canales alpha
-        overlay_region = overlay[y1-y:y2-y, x1-x:x2-x]
-        alpha = overlay_region[..., 3:] / 255.0
-        bg_region = bg[y1:y2, x1:x2]
-
-        # Mezclar imágenes
-        bg[y1:y2, x1:x2] = (bg_region * (1 - alpha) + overlay_region[..., :3] * alpha).astype(np.uint8)
-        return bg
-
 
 # ----------------------------
 # Filtro para nariz
@@ -279,7 +257,7 @@ class NoseFilter(FaceFilter):
             if not self._is_valid_position(pos_x, pos_y, rotated.shape, w, h):
                 return frame
 
-            return self.optimized_overlay(frame, rotated, pos_x, pos_y)
+            return super().optimized_overlay(frame, rotated, pos_x, pos_y)
 
         except (IndexError, cv2.error) as e:
             print(f"Error aplicando filtro de nariz: {e}")
@@ -298,35 +276,6 @@ class NoseFilter(FaceFilter):
                 y >= -h_asset * 0.2 and
                 x + w_asset <= img_w * 1.2 and
                 y + h_asset <= img_h * 1.2)
-
-    def optimized_overlay(self, bg, overlay, x, y):
-        """Superposición optimizada con manejo de bordes"""
-        h_ov, w_ov = overlay.shape[:2]
-        bg_h, bg_w = bg.shape[:2]
-
-        # Región de interés en el fondo
-        y1, y2 = max(y, 0), min(y + h_ov, bg_h)
-        x1, x2 = max(x, 0), min(x + w_ov, bg_w)
-
-        # Región correspondiente en el overlay
-        ov_y1 = max(0, -y)
-        ov_y2 = min(h_ov, bg_h - y)
-        ov_x1 = max(0, -x)
-        ov_x2 = min(w_ov, bg_w - x)
-
-        # Validar áreas superponibles
-        if ov_x1 >= ov_x2 or ov_y1 >= ov_y2:
-            return bg
-
-        # Extraer canales alpha
-        overlay_cropped = overlay[ov_y1:ov_y2, ov_x1:ov_x2]
-        alpha = overlay_cropped[..., 3:] / 255.0
-        bg_region = bg[y1:y2, x1:x2]
-
-        # Mezclar imágenes
-        bg[y1:y2, x1:x2] = (bg_region * (1 - alpha) + overlay_cropped[..., :3] * alpha).astype(np.uint8)
-        return bg
-
 
 # ----------------------------
 # Filtro para boca
@@ -404,8 +353,8 @@ class MouthFilter(FaceFilter):
                 return frame
 
             # Superposición del filtro en el frame
-            return self.optimized_overlay(frame, rotated_asset, center_x, center_y)
-
+            return super().optimized_overlay(frame, rotated_asset, center_x, center_y)
+            
         except (IndexError, cv2.error) as e:
             print(f"Error en filtro bucal: {str(e)}")
             return frame
@@ -421,34 +370,6 @@ class MouthFilter(FaceFilter):
             w_asset > 10 and  # Tamaño mínimo
             h_asset > 10
         )
-
-    def optimized_overlay(self, bg, overlay, x, y):
-        """Superposición optimizada con manejo de bordes"""
-        h_ov, w_ov = overlay.shape[:2]
-        bg_h, bg_w = bg.shape[:2]
-
-        # Región de interés en el fondo
-        y1, y2 = max(y, 0), min(y + h_ov, bg_h)
-        x1, x2 = max(x, 0), min(x + w_ov, bg_w)
-
-        # Región correspondiente en el overlay
-        ov_y1 = max(0, -y)
-        ov_y2 = min(h_ov, bg_h - y)
-        ov_x1 = max(0, -x)
-        ov_x2 = min(w_ov, bg_w - x)
-
-        # Validar áreas superponibles
-        if ov_x1 >= ov_x2 or ov_y1 >= ov_y2:
-            return bg
-
-        # Extraer canales alpha
-        overlay_cropped = overlay[ov_y1:ov_y2, ov_x1:ov_x2]
-        alpha = overlay_cropped[..., 3:] / 255.0
-        bg_region = bg[y1:y2, x1:x2]
-
-        # Mezclar imágenes
-        bg[y1:y2, x1:x2] = (bg_region * (1 - alpha) + overlay_cropped[..., :3] * alpha).astype(np.uint8)
-        return bg
 
 # ----------------------------
 # Filtro para mascaras
@@ -515,7 +436,7 @@ class FaceMaskFilter(FaceFilter):
                 return frame
 
             # Superposición del filtro en el frame
-            return self._blend_asset(frame, rotated_asset, center_x, center_y)
+            return super().optimized_overlay(frame, rotated_asset, center_x, center_y)
 
         except (IndexError, cv2.error) as e:
             print(f"Error en filtro de máscara facial: {str(e)}")
@@ -549,34 +470,6 @@ class FaceMaskFilter(FaceFilter):
             h_asset > 10
         )
 
-    def _blend_asset(self, bg, overlay, x, y):
-        """Superposición optimizada con manejo de bordes"""
-        h_ov, w_ov = overlay.shape[:2]
-        bg_h, bg_w = bg.shape[:2]
-
-        # Región de interés en el fondo
-        y1, y2 = max(y, 0), min(y + h_ov, bg_h)
-        x1, x2 = max(x, 0), min(x + w_ov, bg_w)
-
-        # Región correspondiente en el overlay
-        ov_y1 = max(0, -y)
-        ov_y2 = min(h_ov, bg_h - y)
-        ov_x1 = max(0, -x)
-        ov_x2 = min(w_ov, bg_w - x)
-
-        # Validar áreas superponibles
-        if ov_x1 >= ov_x2 or ov_y1 >= ov_y2:
-            return bg
-
-        # Extraer canales alpha
-        overlay_cropped = overlay[ov_y1:ov_y2, ov_x1:ov_x2]
-        alpha = overlay_cropped[..., 3:] / 255.0
-        bg_region = bg[y1:y2, x1:x2]
-
-        # Mezclar imágenes
-        bg[y1:y2, x1:x2] = (bg_region * (1 - alpha) + overlay_cropped[..., :3] * alpha).astype(np.uint8)
-        return bg
-
 # ----------------------------
 # Sistema principal
 # ----------------------------
@@ -587,7 +480,6 @@ class FaceFilterSystem:
         self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
         self.cap.set(cv2.CAP_PROP_FOURCC,cv2.VideoWriter_fourcc(*'MJPG'))    
 
-        
         self.face_mesh = mp.solutions.face_mesh.FaceMesh(
             static_image_mode=False,
             max_num_faces=1,
@@ -597,13 +489,12 @@ class FaceFilterSystem:
         )
         
         self.active_filters = {
-            # 'glasses': GlassesFilter("imgs/glasses/"),
-            # 'hat': HatFilter("imgs/hats/"),
-            # 'nose': NoseFilter("imgs/noses/"),
-            # 'mouth': MouthFilter("imgs/mouths/"),
-            'face': FaceMaskFilter("imgs/faces/"),
+            'glasses': GlassesFilter("imgs/glasses/"),
+            'hat': HatFilter("imgs/hats/"),
+            'nose': NoseFilter("imgs/noses/"),
+            'mouth': MouthFilter("imgs/mouths/"),
         }
-        self.current_filter = 'face'
+        self.is_face_selected = False
         self.prev_time = time.time()
         self.frame_count = 0
 
@@ -641,15 +532,60 @@ class FaceFilterSystem:
             key = cv2.waitKey(1) & 0xFF
             
             # Navegación entre assets
-            if key == ord('d'):
-                self.active_filters[self.current_filter].current_asset_idx = (
-                    self.active_filters[self.current_filter].current_asset_idx + 1) % len(
-                        self.active_filters[self.current_filter].assets)
-            elif key == ord('a'):
-                self.active_filters[self.current_filter].current_asset_idx = (
-                    self.active_filters[self.current_filter].current_asset_idx - 1) % len(
-                        self.active_filters[self.current_filter].assets)
-            elif key == ord('q'):
+            if key == ord('e') and not self.is_face_selected:
+                self.active_filters['hat'].current_asset_idx = (
+                    self.active_filters['hat'].current_asset_idx + 1) % len(
+                        self.active_filters['hat'].assets)
+            elif key == ord('q') and not self.is_face_selected:
+                self.active_filters['hat'].current_asset_idx = (
+                    self.active_filters['hat'].current_asset_idx - 1) % len(
+                        self.active_filters['hat'].assets)
+            elif key == ord('d') and not self.is_face_selected:
+                self.active_filters['glasses'].current_asset_idx = (
+                    self.active_filters['glasses'].current_asset_idx + 1) % len(
+                        self.active_filters['glasses'].assets)
+            elif key == ord('a') and not self.is_face_selected:
+                self.active_filters['glasses'].current_asset_idx = (
+                    self.active_filters['glasses'].current_asset_idx - 1) % len(
+                        self.active_filters['glasses'].assets)
+            elif key == ord('w') and not self.is_face_selected:
+                self.active_filters['nose'].current_asset_idx = (
+                    self.active_filters['nose'].current_asset_idx + 1) % len(
+                        self.active_filters['nose'].assets)
+            elif key == ord('s') and not self.is_face_selected:
+                self.active_filters['nose'].current_asset_idx = (
+                    self.active_filters['nose'].current_asset_idx - 1) % len(
+                        self.active_filters['nose'].assets)
+            elif key == ord('c') and not self.is_face_selected:
+                self.active_filters['mouth'].current_asset_idx = (
+                    self.active_filters['mouth'].current_asset_idx + 1) % len(
+                        self.active_filters['mouth'].assets)
+            elif key == ord('z') and not self.is_face_selected:
+                self.active_filters['mouth'].current_asset_idx = (
+                    self.active_filters['mouth'].current_asset_idx - 1) % len(
+                        self.active_filters['mouth'].assets)
+            elif key == ord('f'):
+                self.is_face_selected = not self.is_face_selected
+                if self.is_face_selected:
+                    self.active_filters = {
+                        'face': FaceMaskFilter("imgs/faces/")
+                    }
+                else:
+                    self.active_filters = {
+                        'glasses': GlassesFilter("imgs/glasses/"),
+                        'hat': HatFilter("imgs/hats/"),
+                        'nose': NoseFilter("imgs/noses/"),
+                        'mouth': MouthFilter("imgs/mouths/"),
+                    }
+            elif key == ord('m') and self.is_face_selected:
+                self.active_filters['face'].current_asset_idx = (
+                    self.active_filters['face'].current_asset_idx + 1) % len(
+                        self.active_filters['face'].assets)
+            elif key == ord('n') and self.is_face_selected:
+                self.active_filters['face'].current_asset_idx = (
+                    self.active_filters['face'].current_asset_idx - 1) % len(
+                        self.active_filters['face'].assets)
+            elif key == ord('l'):
                 break
 
         self.cap.release()
