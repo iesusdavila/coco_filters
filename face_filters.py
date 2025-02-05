@@ -450,6 +450,132 @@ class MouthFilter(FaceFilter):
         bg[y1:y2, x1:x2] = (bg_region * (1 - alpha) + overlay_cropped[..., :3] * alpha).astype(np.uint8)
         return bg
 
+# ----------------------------
+# Filtro para mascaras
+# ----------------------------
+class FaceMaskFilter(FaceFilter):
+    def __init__(self, assets_path):
+        super().__init__(assets_path)
+        self.required_landmarks = [
+            10,  # Punto superior de la frente
+            152,  # Punto inferior del mentón
+            234,  # Lado izquierdo de la cara
+            454,  # Lado derecho de la cara
+            61, 291,  # Esquinas de la boca
+            1,  # Nariz
+            5,  # Punta de la nariz
+            2,  # Ceja derecha
+            5,  # Ceja izquierda
+        ]
+
+    def apply_filter(self, frame, face_landmarks, frame_size):
+        if not self.assets or not face_landmarks:
+            return frame
+
+        try:
+            h, w = frame_size
+            landmarks = face_landmarks.landmark
+
+            # Puntos clave de la cara
+            top_forehead = (int(landmarks[10].x * w), int(landmarks[10].y * h))
+            chin = (int(landmarks[152].x * w), int(landmarks[152].y * h))
+            left_side = (int(landmarks[234].x * w), int(landmarks[234].y * h))
+            right_side = (int(landmarks[454].x * w), int(landmarks[454].y * h))
+
+            # Calcular el tamaño y posición de la máscara
+            face_width = abs(right_side[0] - left_side[0])
+            face_height = abs(chin[1] - top_forehead[1])
+
+            if face_width == 0 or face_height == 0:
+                return frame
+
+            # Cargar el asset actual
+            mask_asset = self.assets[self.current_asset_idx]
+
+            # Redimensionar el asset según el tamaño de la cara
+            aspect_ratio = mask_asset.shape[0] / mask_asset.shape[1]
+            target_width = int(face_width * 2.0)
+            target_height = int(target_width * aspect_ratio)
+            resized_asset = cv2.resize(mask_asset, (target_width, target_height))
+
+            # Calcular ángulo de rotación basado en la inclinación de la cara
+            dx = right_side[0] - left_side[0]
+            dy = right_side[1] - left_side[1]
+            angle = -np.degrees(np.arctan2(dy, dx))
+
+            # Rotar el asset
+            rotated_asset = self.rotate_image(resized_asset, angle)
+
+            # Posicionamiento centrado en la cara
+            center_x = (left_side[0] + right_side[0]) // 2 - rotated_asset.shape[1] // 2
+            center_y = (top_forehead[1] + chin[1]) // 2 - rotated_asset.shape[0] // 2
+
+            # Validar posición dentro del frame
+            if not self._validate_position(center_x, center_y, rotated_asset.shape, w, h):
+                return frame
+
+            # Superposición del filtro en el frame
+            return self._blend_asset(frame, rotated_asset, center_x, center_y)
+
+        except (IndexError, cv2.error) as e:
+            print(f"Error en filtro de máscara facial: {str(e)}")
+            return frame
+
+    def rotate_image(self, image, angle):
+        """Rotación manteniendo transparencia"""
+        h, w = image.shape[:2]
+        center = (w // 2, h // 2)
+        rot_mat = cv2.getRotationMatrix2D(center, angle, 1.0)
+        cos = np.abs(rot_mat[0, 0])
+        sin = np.abs(rot_mat[0, 1])
+        new_w = int((h * sin) + (w * cos))
+        new_h = int((h * cos) + (w * sin))
+        rot_mat[0, 2] += (new_w - w) // 2
+        rot_mat[1, 2] += (new_h - h) // 2
+        return cv2.warpAffine(image, rot_mat, (new_w, new_h),
+                              flags=cv2.INTER_LINEAR,
+                              borderMode=cv2.BORDER_CONSTANT,
+                              borderValue=(0, 0, 0, 0))
+
+    def _validate_position(self, x, y, shape, img_w, img_h):
+        """Valida que el filtro esté dentro de los límites faciales razonables"""
+        h_asset, w_asset = shape[:2]
+        return (
+            x > -w_asset * 0.2 and
+            y > -h_asset * 0.2 and
+            x + w_asset < img_w * 1.2 and
+            y + h_asset < img_h * 1.2 and
+            w_asset > 10 and  # Tamaño mínimo
+            h_asset > 10
+        )
+
+    def _blend_asset(self, bg, overlay, x, y):
+        """Superposición optimizada con manejo de bordes"""
+        h_ov, w_ov = overlay.shape[:2]
+        bg_h, bg_w = bg.shape[:2]
+
+        # Región de interés en el fondo
+        y1, y2 = max(y, 0), min(y + h_ov, bg_h)
+        x1, x2 = max(x, 0), min(x + w_ov, bg_w)
+
+        # Región correspondiente en el overlay
+        ov_y1 = max(0, -y)
+        ov_y2 = min(h_ov, bg_h - y)
+        ov_x1 = max(0, -x)
+        ov_x2 = min(w_ov, bg_w - x)
+
+        # Validar áreas superponibles
+        if ov_x1 >= ov_x2 or ov_y1 >= ov_y2:
+            return bg
+
+        # Extraer canales alpha
+        overlay_cropped = overlay[ov_y1:ov_y2, ov_x1:ov_x2]
+        alpha = overlay_cropped[..., 3:] / 255.0
+        bg_region = bg[y1:y2, x1:x2]
+
+        # Mezclar imágenes
+        bg[y1:y2, x1:x2] = (bg_region * (1 - alpha) + overlay_cropped[..., :3] * alpha).astype(np.uint8)
+        return bg
 
 # ----------------------------
 # Sistema principal
@@ -471,12 +597,13 @@ class FaceFilterSystem:
         )
         
         self.active_filters = {
-            'glasses': GlassesFilter("imgs/glasses/"),
-            'hat': HatFilter("imgs/hats/"),
-            'nose': NoseFilter("imgs/noses/"),
-            'mouth': MouthFilter("imgs/mouths/")
+            # 'glasses': GlassesFilter("imgs/glasses/"),
+            # 'hat': HatFilter("imgs/hats/"),
+            # 'nose': NoseFilter("imgs/noses/"),
+            # 'mouth': MouthFilter("imgs/mouths/"),
+            'face': FaceMaskFilter("imgs/faces/"),
         }
-        self.current_filter = 'mouth'
+        self.current_filter = 'face'
         self.prev_time = time.time()
         self.frame_count = 0
 
