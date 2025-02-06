@@ -11,7 +11,12 @@ class FaceFilterSystem:
         """
         Initialize the FaceFilterSystem with video capture and face mesh detection.
         """
-        self.cap = cv2.VideoCapture(0)
+        GSTREAMER_PIPELINE = (
+            "v4l2src device=/dev/video0 ! video/x-raw, width=640, height=480, framerate=30/1 ! "
+            "videoconvert ! video/x-raw, format=BGR ! appsink"
+        )
+
+        self.cap = cv2.VideoCapture(GSTREAMER_PIPELINE, cv2.CAP_GSTREAMER)
         self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
         self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
         self.cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*'MJPG'))    
