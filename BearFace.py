@@ -5,10 +5,10 @@ import numpy as np
 mp_face_mesh = mp.solutions.face_mesh
 face_mesh = mp_face_mesh.FaceMesh(min_detection_confidence=0.5, min_tracking_confidence=0.5)
 
-mask_closed_closed = cv2.imread("imgs/bear/bear_closed_closed.png", cv2.IMREAD_UNCHANGED)  # Eyes close, mouth close
-mask_open_closed = cv2.imread("imgs/bear/bear_open_closed.png", cv2.IMREAD_UNCHANGED)  # Eyes open, mouth close
-mask_closed_open = cv2.imread("imgs/bear/bear_closed_open.png", cv2.IMREAD_UNCHANGED)  # Eyes close, mouth open
-mask_open_open = cv2.imread("imgs/bear/bear_open_open.png", cv2.IMREAD_UNCHANGED)  # Eyes open, mouth open
+mask_closed_closed = cv2.imread("imgs/animals_mask/bear/bear_closed_closed.png", cv2.IMREAD_UNCHANGED)  # Eyes close, mouth close
+mask_open_closed = cv2.imread("imgs/animals_mask/bear/bear_open_closed.png", cv2.IMREAD_UNCHANGED)  # Eyes open, mouth close
+mask_closed_open = cv2.imread("imgs/animals_mask/bear/bear_closed_open.png", cv2.IMREAD_UNCHANGED)  # Eyes close, mouth open
+mask_open_open = cv2.imread("imgs/animals_mask/bear/bear_open_open.png", cv2.IMREAD_UNCHANGED)  # Eyes open, mouth open
 
 mouth_open_history = []
 eyes_open_history = []
@@ -21,33 +21,40 @@ def smooth_value(history, new_value, max_size=5):
 
 def rotate_image(image, angle):
     h, w = image.shape[:2]
-    center = (w // 2, h // 2)
+    center = (w//2, h//2)
 
-    cos_angle = abs(np.cos(np.radians(angle)))
-    sin_angle = abs(np.sin(np.radians(angle)))
-    new_w = int(w * cos_angle + h * sin_angle)
-    new_h = int(h * cos_angle + w * sin_angle)
+    cos = np.abs(np.cos(np.radians(angle)))
+    sin = np.abs(np.sin(np.radians(angle)))
+    new_w = int(w * cos + h * sin)
+    new_h = int(h * cos + w * sin)
 
-    rotation_matrix = cv2.getRotationMatrix2D(center, angle, 1.0)
-    rotation_matrix[0, 2] += (new_w - w) / 2
-    rotation_matrix[1, 2] += (new_h - h) / 2
+    rot_mat = cv2.getRotationMatrix2D(center, angle, 1.0)
+    rot_mat[0, 2] += (new_w - w)//2
+    rot_mat[1, 2] += (new_h - h)//2
 
-    rotated = cv2.warpAffine(image, rotation_matrix, (new_w, new_h), flags=cv2.INTER_LINEAR, borderMode=cv2.BORDER_CONSTANT, borderValue=(0, 0, 0, 0))
+    rotated = cv2.warpAffine(image, rot_mat, (new_w, new_h), 
+                            flags=cv2.INTER_LINEAR, 
+                            borderMode=cv2.BORDER_CONSTANT, 
+                            borderValue=(0, 0, 0, 0))
     return rotated
 
-def overlay_image(bg, fg, position):
-    x, y = position
-    h, w, _ = fg.shape
-
-    if x < 0 or y < 0 or x + w > bg.shape[1] or y + h > bg.shape[0]:
+def optimized_overlay(bg: np.ndarray, overlay: np.ndarray, x: int, y: int) -> np.ndarray:
+    h_overlay, w_overlay = overlay.shape[:2]
+    
+    # Regions of interest
+    y1, y2 = max(y, 0), min(y + h_overlay, bg.shape[0])
+    x1, x2 = max(x, 0), min(x + w_overlay, bg.shape[1])
+    
+    if x1 >= x2 or y1 >= y2: 
         return bg
 
-    alpha_fg = fg[:, :, 3] / 255.0
-    alpha_bg = 1.0 - alpha_fg
+    # Extract alpha channels
+    overlay_region = overlay[y1-y:y2-y, x1-x:x2-x]
+    alpha = overlay_region[..., 3:] / 255.0
+    bg_region = bg[y1:y2, x1:x2]
 
-    for c in range(0, 3):
-        bg[y:y+h, x:x+w, c] = (alpha_fg * fg[:, :, c] + alpha_bg * bg[y:y+h, x:x+w, c])
-
+    # Blend images
+    bg[y1:y2, x1:x2] = (bg_region * (1 - alpha) + overlay_region[..., :3] * alpha).astype(np.uint8)
     return bg
 
 GSTREAMER_PIPELINE = (
@@ -114,9 +121,10 @@ while cap.isOpened():
             rotated_mask = rotate_image(resized_mask, angle)
 
             new_h, new_w, _ = rotated_mask.shape
-            top_left = (int(nose[0] - new_w / 2), int(forehead[1] - new_h * 0.3))
+            top_left_x = int(nose[0] - new_w / 2)
+            top_left_y = int(forehead[1] - new_h * 0.3)
 
-            frame = overlay_image(frame, rotated_mask, top_left)
+            frame = optimized_overlay(frame, rotated_mask, top_left_x, top_left_y)
 
     cv2.imshow("Filtro de Oso con Parpadeo y Boca Animada", frame)
     if cv2.waitKey(1) & 0xFF == 27:
