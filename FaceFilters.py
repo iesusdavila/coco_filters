@@ -23,7 +23,7 @@ class FaceFilterSystem:
 
         self.face_mesh = mp.solutions.face_mesh.FaceMesh(
             static_image_mode=False,
-            max_num_faces=1,
+            max_num_faces=2,
             refine_landmarks=False,
             min_detection_confidence=0.5,
             min_tracking_confidence=0.5
@@ -39,6 +39,18 @@ class FaceFilterSystem:
         self.prev_time = time.time()
         self.frame_count = 0
 
+    def flip_frame(self, frame):
+        """
+        Flip the frame horizontally.
+        
+        Args:
+            frame (ndarray): The frame to flip.
+        
+        Returns:
+            frame (ndarray): The flipped frame.
+        """
+        return cv2.flip(frame, 1)
+
     def process_frame(self):
         """
         Process a single frame from the video capture, apply active filters, and calculate FPS.
@@ -49,6 +61,8 @@ class FaceFilterSystem:
         success, frame = self.cap.read()
         if not success:
             return None
+
+        frame = self.flip_frame(frame)
 
         self.frame_count += 1
         frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
