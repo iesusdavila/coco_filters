@@ -3,7 +3,7 @@ import mediapipe as mp
 import numpy as np
 
 mp_face_mesh = mp.solutions.face_mesh
-face_mesh = mp_face_mesh.FaceMesh(min_detection_confidence=0.5, min_tracking_confidence=0.5)
+face_mesh = mp_face_mesh.FaceMesh(min_detection_confidence=0.5, min_tracking_confidence=0.5, max_num_faces=2)
 
 mask_closed_closed = cv2.imread("imgs/animals_mask/bear/bear_closed_closed.png", cv2.IMREAD_UNCHANGED)  # Eyes close, mouth close
 mask_open_closed = cv2.imread("imgs/animals_mask/bear/bear_open_closed.png", cv2.IMREAD_UNCHANGED)  # Eyes open, mouth close
@@ -126,7 +126,7 @@ while cap.isOpened():
 
             frame = optimized_overlay(frame, rotated_mask, top_left_x, top_left_y)
 
-    cv2.imshow("Filtro de Oso con Parpadeo y Boca Animada", frame)
+    cv2.imshow("Filtro de Oso con Parpadeo y Boca Animada", cv2.flip(frame, 1))
     if cv2.waitKey(1) & 0xFF == 27:
         break
 
