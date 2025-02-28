@@ -1,4 +1,6 @@
-from .FaceFilterBase import FaceFilter
+#!/usr/bin/env python3
+
+from FaceFilterBase import FaceFilter
 import numpy as np
 import cv2
 

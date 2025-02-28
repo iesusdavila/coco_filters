@@ -1,8 +1,10 @@
+#!/usr/bin/env python3
+
 import cv2
 from utils.AdvancedFaceFilter import AnimalFilter
 
 def main():
-    animal_filter = AnimalFilter("monkey")
+    animal_filter = AnimalFilter("cat") 
     GSTREAMER_PIPELINE = (
         "v4l2src device=/dev/video0 ! video/x-raw, width=640, height=480, framerate=30/1 ! "
         "videoconvert ! video/x-raw, format=BGR ! appsink"
