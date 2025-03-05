@@ -10,6 +10,10 @@
 #include "NoseFilter.hpp"
 #include "HatFilter.hpp"
 #include "FaceMaskFilter.hpp"
+#include <atomic>
+#include <thread>
+#include <termios.h>
+#include <unistd.h>
 
 using namespace std::chrono_literals;
 using namespace message_filters;
@@ -19,11 +23,13 @@ typedef sync_policies::ApproximateTime<ImageMsg, FaceLandmarks> ApproximateTimeP
 
 class FaceFilterNode : public rclcpp::Node {
 public:
-    FaceFilterNode() : Node("face_filter_node") {
+    FaceFilterNode() : Node("face_filter_node"), 
+                      mask_mode_(false),
+                      running_(true) {
         // Configurar QoS
         auto qos = rclcpp::QoS(rclcpp::KeepLast(10)).reliable();
         
-        // Inicializar filtro de gafas
+        // Inicializar filtros
         std::string assets_path = ament_index_cpp::get_package_share_directory("buddy-filters") + "/imgs";
         glasses_filter_ = std::make_shared<GlassesFilter>(assets_path + "/glasses");
         mouth_filter_ = std::make_shared<MouthFilter>(assets_path + "/mouths");
@@ -49,18 +55,25 @@ public:
         // Configurar publisher
         image_pub_ = image_transport::create_publisher(this, "filtered_image", qos.get_rmw_qos_profile());
         
-        RCLCPP_INFO(this->get_logger(), "Nodo inicializado. Filtros activos: Gafas, Boca");
+        // Hilo para entrada de teclado
+        keyboard_thread_ = std::thread(&FaceFilterNode::keyboardListener, this);
+        
+        RCLCPP_INFO(this->get_logger(), "Nodo inicializado. Modo normal activado");
+    }
+
+    ~FaceFilterNode() {
+        running_ = false;
+        if(keyboard_thread_.joinable()) keyboard_thread_.join();
     }
 
 private:
     void callback(const ImageMsg::ConstSharedPtr& img_msg, 
                   const FaceLandmarks::ConstSharedPtr& landmarks_msg) {
         try {
-            // Convertir a OpenCV
             cv::Mat yuv_image(img_msg->height, img_msg->width, CV_8UC2, const_cast<uchar*>(img_msg->data.data()));
             cv::Mat frame;
             cv::cvtColor(yuv_image, frame, cv::COLOR_YUV2BGR_YUYV);
-                        
+            
             // Convertir landmarks
             std::vector<cv::Point2f> landmarks;
             for (const auto& point : landmarks_msg->landmarks) {
@@ -70,26 +83,20 @@ private:
                 );
             }
             
-            // Aplicar filtro de gafas
+            // Aplicar filtros según modo
             if (!landmarks.empty()) {
-                RCLCPP_INFO(this->get_logger(), "Aplicando filtro de gafas");
-                frame = glasses_filter_->apply_filter(frame, landmarks, frame.size());
-                RCLCPP_INFO(this->get_logger(), "Aplicando filtro de boca");
-                frame = mouth_filter_->apply_filter(frame, landmarks, frame.size());
-                RCLCPP_INFO(this->get_logger(), "Aplicando filtro de nariz");
-                frame = nose_filter_->apply_filter(frame, landmarks, frame.size());
-                RCLCPP_INFO(this->get_logger(), "Aplicando filtro de sombrero");
-                frame = hat_filter_->apply_filter(frame, landmarks, frame.size());
-                RCLCPP_INFO(this->get_logger(), "Aplicando filtro de máscara");
-                frame = face_mask_filter_->apply_filter(frame, landmarks, frame.size());
+                if(mask_mode_) {
+                    frame = face_mask_filter_->apply_filter(frame, landmarks, frame.size());
+                } else {
+                    frame = glasses_filter_->apply_filter(frame, landmarks, frame.size());
+                    frame = mouth_filter_->apply_filter(frame, landmarks, frame.size());
+                    frame = nose_filter_->apply_filter(frame, landmarks, frame.size());
+                    frame = hat_filter_->apply_filter(frame, landmarks, frame.size());
+                }
             }
             
             // Publicar imagen procesada
-            auto output_msg = cv_bridge::CvImage(
-                img_msg->header, 
-                "bgr8", 
-                frame
-            ).toImageMsg();
+            auto output_msg = cv_bridge::CvImage(img_msg->header, "bgr8", frame).toImageMsg();
             image_pub_.publish(output_msg);
             
         } catch (const std::exception& e) {
@@ -97,20 +104,87 @@ private:
         }
     }
 
+    void keyboardListener() {
+        struct termios oldt, newt;
+        tcgetattr(STDIN_FILENO, &oldt);
+        newt = oldt;
+        newt.c_lflag &= ~(ICANON | ECHO);
+        tcsetattr(STDIN_FILENO, TCSANOW, &newt);
+
+        while (running_) {
+            char key = getchar();
+            std::lock_guard<std::mutex> lock(mutex_);
+            
+            if(mask_mode_) {
+                handleMaskMode(key);
+            } else {
+                handleNormalMode(key);
+            }
+        }
+        tcsetattr(STDIN_FILENO, TCSANOW, &oldt);
+    }
+
+    void handleNormalMode(char key) {
+        switch(key) {
+            case 'e': incrementIndex(hat_filter_); break;
+            case 'q': decrementIndex(hat_filter_); break;
+            case 'w': incrementIndex(nose_filter_); break;
+            case 's': decrementIndex(nose_filter_); break;
+            case 'd': incrementIndex(glasses_filter_); break;
+            case 'a': decrementIndex(glasses_filter_); break;
+            case 'c': incrementIndex(mouth_filter_); break;
+            case 'z': decrementIndex(mouth_filter_); break;
+            case 'n': case 'm': 
+                mask_mode_ = true;
+                RCLCPP_INFO(get_logger(), "Modo máscara activado");
+                break;
+        }
+    }
+
+    void handleMaskMode(char key) {
+        switch(key) {
+            case 'n': decrementIndex(face_mask_filter_); break;
+            case 'm': incrementIndex(face_mask_filter_); break;
+            default: 
+                mask_mode_ = false;
+                RCLCPP_INFO(get_logger(), "Modo normal activado");
+                break;
+        }
+    }
+
+    template<typename T>
+    void incrementIndex(std::shared_ptr<T> filter) {
+        if(filter->getAssetsSize() > 0) {
+            filter->incrementIndex();
+            RCLCPP_INFO(get_logger(), "Índice actualizado: %zu", filter->getCurrentIndex());
+        }
+    }
+
+    template<typename T>
+    void decrementIndex(std::shared_ptr<T> filter) {
+        if(filter->getAssetsSize() > 0) {
+            filter->decrementIndex();
+            RCLCPP_INFO(get_logger(), "Índice actualizado: %zu", filter->getCurrentIndex());
+        }
+    }
+
+    // Variables de estado
+    std::atomic<bool> mask_mode_;
+    std::atomic<bool> running_;
+    std::thread keyboard_thread_;
+    std::mutex mutex_;
+
+    // Filtros
     std::shared_ptr<GlassesFilter> glasses_filter_;
     std::shared_ptr<MouthFilter> mouth_filter_;
     std::shared_ptr<NoseFilter> nose_filter_;
     std::shared_ptr<HatFilter> hat_filter_;
     std::shared_ptr<FaceMaskFilter> face_mask_filter_;
+    
     image_transport::Publisher image_pub_;
     Subscriber<ImageMsg> image_sub_;
     Subscriber<FaceLandmarks> landmarks_sub_;
-    std::shared_ptr<message_filters::Synchronizer<
-        message_filters::sync_policies::ApproximateTime<
-            sensor_msgs::msg::Image, 
-            buddy_interfaces::msg::FaceLandmarks
-        >
-    >> sync_;
+    std::shared_ptr<message_filters::Synchronizer<ApproximateTimePolicy>> sync_;
 };
 
 int main(int argc, char** argv) {
