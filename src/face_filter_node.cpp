@@ -8,6 +8,7 @@
 #include "GlassesFilter.hpp"
 #include "MouthFilter.hpp"
 #include "NoseFilter.hpp"
+#include "HatFilter.hpp"
 
 using namespace std::chrono_literals;
 using namespace message_filters;
@@ -26,6 +27,7 @@ public:
         glasses_filter_ = std::make_shared<GlassesFilter>(assets_path + "/glasses");
         mouth_filter_ = std::make_shared<MouthFilter>(assets_path + "/mouths");
         nose_filter_ = std::make_shared<NoseFilter>(assets_path + "/noses");
+        hat_filter_ = std::make_shared<HatFilter>(assets_path + "/hats");
         
         // Configurar suscriptores
         image_sub_.subscribe(this, "image_raw");
@@ -74,6 +76,8 @@ private:
                 frame = mouth_filter_->apply_filter(frame, landmarks, frame.size());
                 RCLCPP_INFO(this->get_logger(), "Aplicando filtro de nariz");
                 frame = nose_filter_->apply_filter(frame, landmarks, frame.size());
+                RCLCPP_INFO(this->get_logger(), "Aplicando filtro de sombrero");
+                frame = hat_filter_->apply_filter(frame, landmarks, frame.size());
             }
             
             // Publicar imagen procesada
@@ -92,6 +96,7 @@ private:
     std::shared_ptr<GlassesFilter> glasses_filter_;
     std::shared_ptr<MouthFilter> mouth_filter_;
     std::shared_ptr<NoseFilter> nose_filter_;
+    std::shared_ptr<HatFilter> hat_filter_;
     image_transport::Publisher image_pub_;
     Subscriber<ImageMsg> image_sub_;
     Subscriber<FaceLandmarks> landmarks_sub_;
