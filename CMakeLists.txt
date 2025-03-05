@@ -42,7 +42,7 @@ add_executable(face_filter_node
   src/filters/HatFilter.cpp
   src/filters/NoseFilter.cpp
   src/filters/MouthFilter.cpp
-  # src/filters/FaceMaskFilter.cpp
+  src/filters/FaceMaskFilter.cpp
 )
 
 target_include_directories(face_filter_node PUBLIC
