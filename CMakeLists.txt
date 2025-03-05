@@ -12,13 +12,10 @@ find_package(control_msgs REQUIRED)
 
 install(PROGRAMS
   scripts/face_landmark_detector.py
-  scripts/FaceFilters.py
   scripts/BearFace.py
   scripts/CatFace.py
   scripts/MonkeyFace.py
   scripts/utils/AdvancedFaceFilter.py
-  scripts/utils/FaceFilterBase.py
-  scripts/utils/Filters.py
   DESTINATION lib/${PROJECT_NAME}
 )
 
