@@ -7,6 +7,7 @@
 #include "buddy_interfaces/msg/face_landmarks.hpp"
 #include "GlassesFilter.hpp"
 #include "MouthFilter.hpp"
+#include "NoseFilter.hpp"
 
 using namespace std::chrono_literals;
 using namespace message_filters;
@@ -24,6 +25,7 @@ public:
         std::string assets_path = ament_index_cpp::get_package_share_directory("buddy-filters") + "/imgs";
         glasses_filter_ = std::make_shared<GlassesFilter>(assets_path + "/glasses");
         mouth_filter_ = std::make_shared<MouthFilter>(assets_path + "/mouths");
+        nose_filter_ = std::make_shared<NoseFilter>(assets_path + "/noses");
         
         // Configurar suscriptores
         image_sub_.subscribe(this, "image_raw");
@@ -70,6 +72,8 @@ private:
                 frame = glasses_filter_->apply_filter(frame, landmarks, frame.size());
                 RCLCPP_INFO(this->get_logger(), "Aplicando filtro de boca");
                 frame = mouth_filter_->apply_filter(frame, landmarks, frame.size());
+                RCLCPP_INFO(this->get_logger(), "Aplicando filtro de nariz");
+                frame = nose_filter_->apply_filter(frame, landmarks, frame.size());
             }
             
             // Publicar imagen procesada
@@ -87,6 +91,7 @@ private:
 
     std::shared_ptr<GlassesFilter> glasses_filter_;
     std::shared_ptr<MouthFilter> mouth_filter_;
+    std::shared_ptr<NoseFilter> nose_filter_;
     image_transport::Publisher image_pub_;
     Subscriber<ImageMsg> image_sub_;
     Subscriber<FaceLandmarks> landmarks_sub_;
