@@ -41,7 +41,7 @@ add_executable(face_filter_node
   src/filters/FaceFilterBase.cpp
   # src/filters/HatFilter.cpp
   # src/filters/NoseFilter.cpp
-  # src/filters/MouthFilter.cpp
+  src/filters/MouthFilter.cpp
   # src/filters/FaceMaskFilter.cpp
 )
 

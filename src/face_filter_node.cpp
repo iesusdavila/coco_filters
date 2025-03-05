@@ -6,6 +6,7 @@
 #include "ament_index_cpp/get_package_share_directory.hpp"
 #include "buddy_interfaces/msg/face_landmarks.hpp"
 #include "GlassesFilter.hpp"
+#include "MouthFilter.hpp"
 
 using namespace std::chrono_literals;
 using namespace message_filters;
@@ -22,6 +23,7 @@ public:
         // Inicializar filtro de gafas
         std::string assets_path = ament_index_cpp::get_package_share_directory("buddy-filters") + "/imgs";
         glasses_filter_ = std::make_shared<GlassesFilter>(assets_path + "/glasses");
+        mouth_filter_ = std::make_shared<MouthFilter>(assets_path + "/mouths");
         
         // Configurar suscriptores
         image_sub_.subscribe(this, "image_raw");
@@ -41,7 +43,7 @@ public:
         // Configurar publisher
         image_pub_ = image_transport::create_publisher(this, "filtered_image", qos.get_rmw_qos_profile());
         
-        RCLCPP_INFO(this->get_logger(), "Nodo inicializado. Filtros activos: Gafas");
+        RCLCPP_INFO(this->get_logger(), "Nodo inicializado. Filtros activos: Gafas, Boca");
     }
 
 private:
@@ -66,6 +68,8 @@ private:
             if (!landmarks.empty()) {
                 RCLCPP_INFO(this->get_logger(), "Aplicando filtro de gafas");
                 frame = glasses_filter_->apply_filter(frame, landmarks, frame.size());
+                RCLCPP_INFO(this->get_logger(), "Aplicando filtro de boca");
+                frame = mouth_filter_->apply_filter(frame, landmarks, frame.size());
             }
             
             // Publicar imagen procesada
@@ -82,6 +86,7 @@ private:
     }
 
     std::shared_ptr<GlassesFilter> glasses_filter_;
+    std::shared_ptr<MouthFilter> mouth_filter_;
     image_transport::Publisher image_pub_;
     Subscriber<ImageMsg> image_sub_;
     Subscriber<FaceLandmarks> landmarks_sub_;
