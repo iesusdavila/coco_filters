@@ -9,48 +9,56 @@ cv::Mat MouthFilter::apply_filter(cv::Mat frame, const std::vector<cv::Point2f>&
     if (frame.empty() || assets.empty() || landmarks.size() < 468) return frame;
 
     try {
-        const int LEFT_MOUTH_CORNER = 61;
-        const int RIGHT_MOUTH_CORNER = 291;
-        const int UPPER_LIP = 13;
-        const int LOWER_LIP = 14;
-
-        cv::Point2f left_corner = landmarks[LEFT_MOUTH_CORNER];
-        cv::Point2f right_corner = landmarks[RIGHT_MOUTH_CORNER];
-        cv::Point2f upper_lip = landmarks[UPPER_LIP];
-        cv::Point2f lower_lip = landmarks[LOWER_LIP];
-
-        if (valid_landmark(left_corner) || valid_landmark(right_corner) ||
-            valid_landmark(upper_lip) || valid_landmark(lower_lip)) {
-            RCLCPP_ERROR(rclcpp::get_logger("MouthFilter"), "Landmarks inválidos (NaN/Inf)");
-            return frame;
-        }
-
-        float mouth_width = cv::norm(right_corner - left_corner);
-        float mouth_height = cv::norm(lower_lip - upper_lip);
-        
-
-        cv::Mat mouth_asset = assets[current_asset_idx].clone();
-        if (mouth_asset.channels() != 4) {
+        cv::Mat mouth = assets[current_asset_idx].clone();
+        if (mouth.channels() != 4) {
             RCLCPP_ERROR(rclcpp::get_logger("MouthFilter"), "Asset sin canal alpha");
             return frame;
         }
 
-        float aspect_ratio = static_cast<float>(mouth_asset.rows) / mouth_asset.cols;
-        int target_width = static_cast<int>(mouth_width * 1.3f);
-        int target_height = static_cast<int>(target_width * aspect_ratio);
-        target_width = std::clamp(target_width, 20, 300);
-        target_height = std::clamp(target_height, 10, 150);
-        
-        cv::resize(mouth_asset, mouth_asset, cv::Size(target_width, target_height));
+        const int LEFT_MOUTH_CORNER = 61;
+        const int RIGHT_MOUTH_CORNER = 291;
 
-        float dx = right_corner.x - left_corner.x;
-        float dy = right_corner.y - left_corner.y;
+        cv::Point2f left_corner = landmarks[LEFT_MOUTH_CORNER];
+        cv::Point2f right_corner = landmarks[RIGHT_MOUTH_CORNER];
+
+        if (valid_landmark(left_corner) || valid_landmark(right_corner)) {
+            RCLCPP_ERROR(rclcpp::get_logger("MouthFilter"), "Landmarks inválidos (NaN/Inf)");
+            return frame;
+        }
+
+        int left_x = static_cast<int>(left_corner.x);
+        int left_y = static_cast<int>(left_corner.y);
+        int right_x = static_cast<int>(right_corner.x);
+        int right_y = static_cast<int>(right_corner.y);
+
+        float dx = right_x - left_x;
+        float dy = right_y - left_y;
         double angle = -std::atan2(dy, dx) * 180.0 / CV_PI;
-        cv::Mat rotated = rotate_image(mouth_asset, angle);
+        float mouth_distance = std::hypot(dx, dy);
+
+        if (mouth_distance < 10 || mouth_distance > 300) return frame;
+
+        int mouth_width = static_cast<int>(mouth_distance * 1.3);
+        mouth_width = std::clamp(mouth_width, 20, 300);
+
+        float aspect_ratio = static_cast<float>(mouth.rows) / mouth.cols;
+        int mouth_height = static_cast<int>(mouth_width * aspect_ratio);
+        mouth_height = std::clamp(mouth_height, 10, 150);
+        
+        cv::Size target_size(mouth_width, mouth_height);
+        if (target_size.width <= 0 || target_size.height <= 0) return frame;
+
+        cv::resize(mouth, mouth, target_size);
+
+        cv::Mat rotated = rotate_image(mouth, angle);
         if (rotated.empty()) return frame;
 
-        int center_x = static_cast<int>((left_corner.x + right_corner.x) / 2 - rotated.cols / 2);
-        int center_y = static_cast<int>((upper_lip.y + lower_lip.y) / 2 - rotated.rows / 2);
+        int center_x = (left_x + right_x) / 2 - rotated.cols / 2;
+        int center_y = (landmarks[13].y + landmarks[14].y) / 2 - rotated.rows / 2;
+
+        if (!validate_position(center_x, center_y, rotated.size(), frame.size())) {
+            return frame;
+        }
 
         optimized_overlay(frame, rotated, center_x, center_y);
         return frame;
@@ -59,4 +67,12 @@ cv::Mat MouthFilter::apply_filter(cv::Mat frame, const std::vector<cv::Point2f>&
         RCLCPP_ERROR(rclcpp::get_logger("MouthFilter"), "Error: %s", e.what());
         return frame;
     }
+}
+
+bool MouthFilter::validate_position(int x, int y, const cv::Size& asset_size, const cv::Size& frame_size) {
+    const float PADDING_FACTOR = 0.2f;
+    return (x > -asset_size.width * PADDING_FACTOR) &&
+           (y > -asset_size.height * PADDING_FACTOR) &&
+           (x + asset_size.width < frame_size.width * (1 + PADDING_FACTOR)) &&
+           (y + asset_size.height < frame_size.height * (1 + PADDING_FACTOR));
 }
