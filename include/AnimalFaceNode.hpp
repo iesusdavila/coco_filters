@@ -1,5 +1,5 @@
 #pragma once
-#include "AnimalFilter.hpp"
+#include "mask/AnimalFilter.hpp"
 #include <rclcpp/rclcpp.hpp>
 #include <image_transport/image_transport.hpp>
 #include <cv_bridge/cv_bridge.h>

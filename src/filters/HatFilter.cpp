@@ -1,4 +1,4 @@
-#include "HatFilter.hpp"
+#include "filters/HatFilter.hpp"
 #include <rclcpp/rclcpp.hpp>
 #include <opencv2/opencv.hpp>
 #include <cmath>

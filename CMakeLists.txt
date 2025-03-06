@@ -29,7 +29,7 @@ find_package(image_transport REQUIRED)
 include_directories( ${OpenCV_INCLUDE_DIRS} )
 
 add_executable(face_filter_node 
-  src/face_filter_node.cpp
+  src/FaceFilterNode.cpp
   src/filters/GlassesFilter.cpp
   src/filters/FaceFilterBase.cpp
   src/filters/HatFilter.cpp
@@ -38,7 +38,7 @@ add_executable(face_filter_node
   src/filters/FaceMaskFilter.cpp
 )
 
-add_executable(face_filter_mask
+add_executable(animal_filter_mask
   src/AnimalFaceNode.cpp
   src/mask/AnimalFilter.cpp
 )
@@ -48,7 +48,7 @@ target_include_directories(face_filter_node PUBLIC
   include/
 )
 
-target_include_directories(face_filter_mask PUBLIC
+target_include_directories(animal_filter_mask PUBLIC
   ${OpenCV_INCLUDE_DIRS}
   include/
 )
@@ -58,7 +58,7 @@ target_link_libraries(face_filter_node
   ${OpenCV_LIBS}
 )
 
-target_link_libraries(face_filter_mask
+target_link_libraries(animal_filter_mask
   ${rclcpp_LIBRARIES}
   ${OpenCV_LIBS}
 )
@@ -75,7 +75,7 @@ ament_target_dependencies(face_filter_node
   image_transport
 )
 
-ament_target_dependencies(face_filter_mask
+ament_target_dependencies(animal_filter_mask
   rclcpp
   sensor_msgs
   std_msgs
@@ -93,7 +93,7 @@ install(TARGETS
 )
 
 install(TARGETS
-  face_filter_mask
+animal_filter_mask
   DESTINATION lib/${PROJECT_NAME}
 )
 
@@ -120,6 +120,6 @@ ament_export_dependencies(
 
 ament_export_include_directories(include)
 ament_export_libraries(face_filter_node)
-ament_export_libraries(face_filter_mask)
+ament_export_libraries(animal_filter_mask)
 
 ament_package()
