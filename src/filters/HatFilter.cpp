@@ -9,8 +9,14 @@ cv::Mat HatFilter::apply_filter(cv::Mat frame, const std::vector<cv::Point2f>& l
     if (frame.empty() || assets.empty() || landmarks.size() < 333) return frame;
 
     try {
-        const int FOREHEAD_RIGHT = 103;
-        const int FOREHEAD_LEFT = 332; 
+        cv::Mat hat = assets[current_asset_idx].clone();
+        if (current_asset_idx >= assets.size() || hat.channels() != 4) {
+            RCLCPP_ERROR(rclcpp::get_logger("HatFilter"), "Asset sin canal alpha");
+            return frame;
+        }
+
+        const int FOREHEAD_RIGHT = 332;
+        const int FOREHEAD_LEFT = 103; 
 
         cv::Point2f forehead_left = landmarks[FOREHEAD_LEFT];
         cv::Point2f forehead_right = landmarks[FOREHEAD_RIGHT];
@@ -20,33 +26,35 @@ cv::Mat HatFilter::apply_filter(cv::Mat frame, const std::vector<cv::Point2f>& l
             return frame;
         }
 
-        float dx = forehead_right.x - forehead_left.x;
-        float dy = forehead_right.y - forehead_left.y;
+        int left_x = static_cast<int>(forehead_left.x);
+        int left_y = static_cast<int>(forehead_left.y);
+        int right_x = static_cast<int>(forehead_right.x);
+        int right_y = static_cast<int>(forehead_right.y);
+
+        float dx = right_x - left_x;
+        float dy = right_y - left_y;
         double angle = -std::atan2(dy, dx) * 180.0 / CV_PI;
         float forehead_distance = std::hypot(dx, dy);
         
         if (forehead_distance < 15.0f) return frame;
 
-        cv::Mat hat_asset = assets[current_asset_idx].clone();
-        if (hat_asset.channels() != 4) {
-            RCLCPP_ERROR(rclcpp::get_logger("HatFilter"), "Asset sin canal alpha");
-            return frame;
-        }
-
         int hat_width = static_cast<int>(forehead_distance * 1.7f);
-        float aspect_ratio = static_cast<float>(hat_asset.rows) / hat_asset.cols;
-        int hat_height = static_cast<int>(hat_width * aspect_ratio * 0.75f);
-        
         hat_width = std::clamp(hat_width, 30, 500);
+
+        float aspect_ratio = static_cast<float>(hat.rows) / hat.cols;
+        int hat_height = static_cast<int>(hat_width * aspect_ratio * 0.75f); 
         hat_height = std::clamp(hat_height, 30, 500);
         
-        cv::resize(hat_asset, hat_asset, cv::Size(hat_width, hat_height));
+        cv::Size target_size(hat_width, hat_height);
+        if (target_size.width <= 0 || target_size.height <= 0) return frame;
 
-        cv::Mat rotated_hat = rotate_image(hat_asset, angle);
+        cv::resize(hat, hat, target_size);
+
+        cv::Mat rotated_hat = rotate_image(hat, angle);
         if (rotated_hat.empty()) return frame;
 
-        int center_x = static_cast<int>((forehead_left.x + forehead_right.x)/2) - rotated_hat.cols/2;
-        int center_y = static_cast<int>((forehead_left.y + forehead_right.y)/2) - rotated_hat.rows/2 - (hat_height/4);
+        int center_x = (left_x + right_x) / 2 - rotated_hat.cols/2;
+        int center_y = (left_y + right_y) / 2 - rotated_hat.rows/2 - (hat_height/4);
 
         if (!validate_position(center_x, center_y, rotated_hat.size(), frame.size())) {
             return frame;

@@ -71,12 +71,14 @@ private:
             std::vector<cv::Point2f> landmarks;
             for (const auto& point : landmarks_msg->landmarks) {
                 landmarks.emplace_back(
-                    (1.0 - point.x) * frame.cols,
+                    point.x * frame.cols,
                     point.y * frame.rows
                 );
             }
             
             if (!landmarks.empty()) {
+                std::lock_guard<std::mutex> lock(mutex_);
+                cv::flip(frame, frame, 1);
                 if(mask_mode_) {
                     frame = face_mask_filter_->apply_filter(frame, landmarks, frame.size());
                 } else {
