@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.8)
-project(buddy-filters)
+project(buddy_filters)
 
 # ========== Configuración común ==========
 find_package(ament_cmake REQUIRED)
@@ -8,14 +8,10 @@ find_package(ament_cmake_python REQUIRED)
 # ========== Configuración para Python ==========
 find_package(rclpy REQUIRED)
 find_package(sensor_msgs REQUIRED)
-find_package(control_msgs REQUIRED)
+find_package(geometry_msgs REQUIRED)
 
 install(PROGRAMS
   scripts/face_landmark_detector.py
-  # scripts/BearFace.py
-  # scripts/CatFace.py
-  # scripts/MonkeyFace.py
-  # scripts/utils/AdvancedFaceFilter.py
   DESTINATION lib/${PROJECT_NAME}
 )
 
@@ -113,7 +109,7 @@ ament_export_dependencies(
   rclpy
   sensor_msgs
   std_msgs
-  control_msgs
+  geometry_msgs
   OpenCV
   buddy_interfaces
   cv_bridge
