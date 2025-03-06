@@ -12,10 +12,10 @@ find_package(control_msgs REQUIRED)
 
 install(PROGRAMS
   scripts/face_landmark_detector.py
-  scripts/BearFace.py
-  scripts/CatFace.py
-  scripts/MonkeyFace.py
-  scripts/utils/AdvancedFaceFilter.py
+  # scripts/BearFace.py
+  # scripts/CatFace.py
+  # scripts/MonkeyFace.py
+  # scripts/utils/AdvancedFaceFilter.py
   DESTINATION lib/${PROJECT_NAME}
 )
 
@@ -42,12 +42,27 @@ add_executable(face_filter_node
   src/filters/FaceMaskFilter.cpp
 )
 
+add_executable(face_filter_mask
+  src/BearFaceNode.cpp
+  src/mask/AnimalFilter.cpp
+)
+
 target_include_directories(face_filter_node PUBLIC
   ${OpenCV_INCLUDE_DIRS}
   include/
 )
 
+target_include_directories(face_filter_mask PUBLIC
+  ${OpenCV_INCLUDE_DIRS}
+  include/
+)
+
 target_link_libraries(face_filter_node
+  ${rclcpp_LIBRARIES}
+  ${OpenCV_LIBS}
+)
+
+target_link_libraries(face_filter_mask
   ${rclcpp_LIBRARIES}
   ${OpenCV_LIBS}
 )
@@ -64,8 +79,25 @@ ament_target_dependencies(face_filter_node
   image_transport
 )
 
+ament_target_dependencies(face_filter_mask
+  rclcpp
+  sensor_msgs
+  std_msgs
+  OpenCV
+  buddy_interfaces
+  cv_bridge
+  message_filters
+  ament_index_cpp
+  image_transport
+)
+
 install(TARGETS
   face_filter_node
+  DESTINATION lib/${PROJECT_NAME}
+)
+
+install(TARGETS
+  face_filter_mask
   DESTINATION lib/${PROJECT_NAME}
 )
 
@@ -92,5 +124,6 @@ ament_export_dependencies(
 
 ament_export_include_directories(include)
 ament_export_libraries(face_filter_node)
+ament_export_libraries(face_filter_mask)
 
 ament_package()
