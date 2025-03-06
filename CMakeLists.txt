@@ -43,7 +43,7 @@ add_executable(face_filter_node
 )
 
 add_executable(face_filter_mask
-  src/BearFaceNode.cpp
+  src/AnimalFaceNode.cpp
   src/mask/AnimalFilter.cpp
 )
 
