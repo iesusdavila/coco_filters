@@ -16,13 +16,11 @@ private:
     void optimized_overlay(cv::Mat& bg, const cv::Mat& overlay, int x, int y);
     float smooth_value(std::deque<float>& history, float new_value, size_t max_size = 5);
 
-    // Máscaras
     cv::Mat mask_closed_closed_;
     cv::Mat mask_open_closed_;
     cv::Mat mask_closed_open_;
     cv::Mat mask_open_open_;
     
-    // Historial para suavizado
     std::deque<float> mouth_open_history_;
     std::deque<float> eyes_open_history_;
 };

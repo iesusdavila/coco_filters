@@ -3,23 +3,18 @@
 #include <unistd.h>
 
 AnimalFaceNode::AnimalFaceNode() : Node("animal_face_node"), current_filter_("bear") {
-    // Configuración de QoS
     auto qos = rclcpp::QoS(rclcpp::KeepLast(10)).reliable();
     
-    // Suscriptores
     image_sub_.subscribe(this, "image_raw");
     landmarks_sub_.subscribe(this, "face_landmarks");
     
-    // Sincronizador
     sync_ = std::make_shared<Synchronizer<ApproximateTimePolicy>>(
         ApproximateTimePolicy(10), image_sub_, landmarks_sub_);
     
     sync_->registerCallback(&AnimalFaceNode::callback, this);
     
-    // Publisher
     image_pub_ = image_transport::create_publisher(this, "filtered_image", qos.get_rmw_qos_profile());
     
-    // Hilo para entrada de teclado
     keyboard_thread_ = std::thread(&AnimalFaceNode::keyboard_listener, this);
     
     RCLCPP_INFO(get_logger(), "Nodo de filtros animales inicializado");
@@ -42,7 +37,6 @@ void AnimalFaceNode::callback(const ImageMsg::ConstSharedPtr& img_msg,
             );
         }
         
-        // Aplicar filtro con mutex
         std::lock_guard<std::mutex> lock(filter_mutex_);
         cv::flip(frame, frame, 1);
         frame = current_filter_.apply_filter(frame, landmarks);
@@ -87,7 +81,7 @@ int main(int argc, char** argv) {
     rclcpp::init(argc, argv);
     auto node = std::make_shared<AnimalFaceNode>();
     rclcpp::spin(node);
-    node->shutdown();  // Llama al método público en lugar de acceder a miembros privados
+    node->shutdown();  
     rclcpp::shutdown();
     return 0;
 }

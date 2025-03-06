@@ -9,7 +9,6 @@ cv::Mat MouthFilter::apply_filter(cv::Mat frame, const std::vector<cv::Point2f>&
     if (frame.empty() || assets.empty() || landmarks.size() < 468) return frame;
 
     try {
-        // --- 1. Validación extrema de landmarks ---
         const int LEFT_MOUTH_CORNER = 61;
         const int RIGHT_MOUTH_CORNER = 291;
         const int UPPER_LIP = 13;
@@ -28,20 +27,16 @@ cv::Mat MouthFilter::apply_filter(cv::Mat frame, const std::vector<cv::Point2f>&
             return frame;
         }
 
-        // --- 2. Cálculo seguro de distancia ---
         float mouth_width = cv::norm(right_corner - left_corner);
         float mouth_height = cv::norm(lower_lip - upper_lip);
         
-        // if (mouth_width < 10 || mouth_height < 5) return frame;
 
-        // Prepare asset
         cv::Mat mouth_asset = assets[current_asset_idx].clone();
         if (mouth_asset.channels() != 4) {
             RCLCPP_ERROR(rclcpp::get_logger("MouthFilter"), "Asset sin canal alpha");
             return frame;
         }
 
-        // Calculate target size
         float aspect_ratio = static_cast<float>(mouth_asset.rows) / mouth_asset.cols;
         int target_width = static_cast<int>(mouth_width * 1.3f);
         int target_height = static_cast<int>(target_width * aspect_ratio);
@@ -50,18 +45,15 @@ cv::Mat MouthFilter::apply_filter(cv::Mat frame, const std::vector<cv::Point2f>&
         
         cv::resize(mouth_asset, mouth_asset, cv::Size(target_width, target_height));
 
-        // --- Rotación con ángulo limitado ---
         float dx = right_corner.x - left_corner.x;
         float dy = right_corner.y - left_corner.y;
         double angle = -std::atan2(dy, dx) * 180.0 / CV_PI;
         cv::Mat rotated = rotate_image(mouth_asset, angle);
         if (rotated.empty()) return frame;
 
-        // --- Calculo de posición ---
         int center_x = static_cast<int>((left_corner.x + right_corner.x) / 2 - rotated.cols / 2);
         int center_y = static_cast<int>((upper_lip.y + lower_lip.y) / 2 - rotated.rows / 2);
 
-        // Apply overlay
         optimized_overlay(frame, rotated, center_x, center_y);
         return frame;
 

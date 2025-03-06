@@ -26,10 +26,8 @@ public:
     FaceFilterNode() : Node("face_filter_node"), 
                       mask_mode_(false),
                       running_(true) {
-        // Configurar QoS
         auto qos = rclcpp::QoS(rclcpp::KeepLast(10)).reliable();
         
-        // Inicializar filtros
         std::string assets_path = ament_index_cpp::get_package_share_directory("buddy_filters") + "/imgs";
         glasses_filter_ = std::make_shared<GlassesFilter>(assets_path + "/glasses");
         mouth_filter_ = std::make_shared<MouthFilter>(assets_path + "/mouths");
@@ -37,11 +35,9 @@ public:
         hat_filter_ = std::make_shared<HatFilter>(assets_path + "/hats");
         face_mask_filter_ = std::make_shared<FaceMaskFilter>(assets_path + "/faces");
         
-        // Configurar suscriptores
         image_sub_.subscribe(this, "image_raw");
         landmarks_sub_.subscribe(this, "face_landmarks");
         
-        // Configurar sincronizador
         sync_ = std::make_shared<message_filters::Synchronizer<ApproximateTimePolicy>>(
             ApproximateTimePolicy(10), image_sub_, landmarks_sub_
         );
@@ -52,10 +48,8 @@ public:
             std::placeholders::_2)
         );
         
-        // Configurar publisher
         image_pub_ = image_transport::create_publisher(this, "filtered_image", qos.get_rmw_qos_profile());
         
-        // Hilo para entrada de teclado
         keyboard_thread_ = std::thread(&FaceFilterNode::keyboardListener, this);
         
         RCLCPP_INFO(this->get_logger(), "Nodo inicializado. Modo normal activado");
@@ -74,7 +68,6 @@ private:
             cv::Mat frame;
             cv::cvtColor(yuv_image, frame, cv::COLOR_YUV2BGR_YUYV);
             
-            // Convertir landmarks
             std::vector<cv::Point2f> landmarks;
             for (const auto& point : landmarks_msg->landmarks) {
                 landmarks.emplace_back(
@@ -83,7 +76,6 @@ private:
                 );
             }
             
-            // Aplicar filtros según modo
             if (!landmarks.empty()) {
                 if(mask_mode_) {
                     frame = face_mask_filter_->apply_filter(frame, landmarks, frame.size());
@@ -95,7 +87,6 @@ private:
                 }
             }
             
-            // Publicar imagen procesada
             auto output_msg = cv_bridge::CvImage(img_msg->header, "bgr8", frame).toImageMsg();
             image_pub_.publish(output_msg);
             
@@ -168,13 +159,11 @@ private:
         }
     }
 
-    // Variables de estado
     std::atomic<bool> mask_mode_;
     std::atomic<bool> running_;
     std::thread keyboard_thread_;
     std::mutex mutex_;
 
-    // Filtros
     std::shared_ptr<GlassesFilter> glasses_filter_;
     std::shared_ptr<MouthFilter> mouth_filter_;
     std::shared_ptr<NoseFilter> nose_filter_;

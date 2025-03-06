@@ -36,14 +36,12 @@ cv::Mat AnimalFilter::rotate_image(const cv::Mat& image, double angle) {
 }
 
 void AnimalFilter::optimized_overlay(cv::Mat& bg, const cv::Mat& overlay, int x, int y) {
-    // Verificaciones iniciales
     if (overlay.empty() || bg.empty() ||
         x >= bg.cols || y >= bg.rows ||
         x + overlay.cols <= 0 || y + overlay.rows <= 0) {
         return;
     }
 
-    // Región de interés
     int y1 = std::max(y, 0);
     int y2 = std::min(y + overlay.rows, bg.rows);
     int x1 = std::max(x, 0);
@@ -51,7 +49,6 @@ void AnimalFilter::optimized_overlay(cv::Mat& bg, const cv::Mat& overlay, int x,
 
     if (x1 >= x2 || y1 >= y2) return;
 
-    // Asegurar que el fondo sea de 3 canales
     cv::Mat bg_3channel;
     if (bg.channels() == 4) {
         cv::cvtColor(bg, bg_3channel, cv::COLOR_BGRA2BGR);
@@ -62,41 +59,33 @@ void AnimalFilter::optimized_overlay(cv::Mat& bg, const cv::Mat& overlay, int x,
         return;
     }
 
-    // Región de interés del fondo
     cv::Rect roi(x1, y1, x2 - x1, y2 - y1);
     cv::Mat bg_roi = bg_3channel(roi);
 
-    // Región de interés de la superposición
     cv::Rect overlay_roi(x1 - x, y1 - y, x2 - x1, y2 - y1);
     cv::Mat overlay_region = overlay(overlay_roi);
 
-    // Separar canales
     std::vector<cv::Mat> overlay_channels;
     cv::split(overlay_region, overlay_channels);
 
-    // Manejar máscaras sin canal alpha
     if(overlay_channels.size() < 4) {
         RCLCPP_ERROR(rclcpp::get_logger("AnimalFilter"), "La máscara no tiene canal alpha");
         return;
     }
 
-    // Canal alpha normalizado
     cv::Mat alpha;
     overlay_channels[3].convertTo(alpha, CV_32F, 1.0/255.0);
     cv::Mat inv_alpha = 1.0 - alpha;
 
-    // Canales de color de la superposición (BGR)
     std::vector<cv::Mat> overlay_color_channels(3);
     for(int i = 0; i < 3; ++i) {
         overlay_channels[i].convertTo(overlay_color_channels[i], CV_32F);
     }
 
-    // Canales de color del fondo
     std::vector<cv::Mat> bg_channels;
     cv::split(bg_roi, bg_channels);
     for(auto& channel : bg_channels) channel.convertTo(channel, CV_32F);
 
-    // Blending
     for(int c = 0; c < 3; ++c) {
         cv::add(
             bg_channels[c].mul(inv_alpha),
@@ -105,11 +94,9 @@ void AnimalFilter::optimized_overlay(cv::Mat& bg, const cv::Mat& overlay, int x,
         );
     }
 
-    // Fusionar canales y convertir a 8-bit
     cv::merge(bg_channels, bg_roi);
     bg_roi.convertTo(bg_roi, CV_8U);
 
-    // Actualizar región en la imagen original
     bg_roi.copyTo(bg(roi));
 }
 
@@ -138,29 +125,24 @@ cv::Mat AnimalFilter::apply_filter(cv::Mat frame, const std::vector<cv::Point2f>
         const int RIGHT_EYE_TOP = 386;
         const int RIGHT_EYE_BOTTOM = 374;
 
-        // Obtener puntos clave
         cv::Point2f left_eye = landmarks[LEFT_EYE];
         cv::Point2f right_eye = landmarks[RIGHT_EYE];
         cv::Point2f nose = landmarks[NOSE_TIP];
         cv::Point2f chin = landmarks[CHIN];
         cv::Point2f forehead = landmarks[FOREHEAD];
 
-        // Calcular dimensiones de la cara
         float face_width = cv::norm(right_eye - left_eye) * 3.2f;
         float face_height = cv::norm(forehead - chin) * 2.0f;
 
-        // Calcular ángulo de rotación
         float dx = right_eye.x - left_eye.x;
         float dy = right_eye.y - left_eye.y;
         double angle = -std::atan2(dy, dx) * 180.0 / CV_PI;
 
-        // Detección de boca abierta
         cv::Point2f lip_top = landmarks[LIP_TOP];
         cv::Point2f lip_bottom = landmarks[LIP_BOTTOM];
         float mouth_distance = cv::norm(lip_top - lip_bottom);
         bool mouth_open = smooth_value(mouth_open_history_, mouth_distance > 12.0f, 5) > 0.5f;
 
-        // Detección de ojos abiertos
         cv::Point2f left_eye_top = landmarks[LEFT_EYE_TOP];
         cv::Point2f left_eye_bottom = landmarks[LEFT_EYE_BOTTOM];
         cv::Point2f right_eye_top = landmarks[RIGHT_EYE_TOP];
@@ -170,14 +152,12 @@ cv::Mat AnimalFilter::apply_filter(cv::Mat frame, const std::vector<cv::Point2f>
                              cv::norm(right_eye_top - right_eye_bottom)) / 2.0f;
         bool eyes_open = smooth_value(eyes_open_history_, eye_openness > 5.0f, 5) > 0.5f;
 
-        // Seleccionar máscara
         cv::Mat selected_mask;
         if(mouth_open && eyes_open) selected_mask = mask_open_open_;
         else if(mouth_open) selected_mask = mask_closed_open_;
         else if(eyes_open) selected_mask = mask_open_closed_;
         else selected_mask = mask_closed_closed_;
 
-        // Procesar máscara
         cv::Mat resized_mask;
         cv::resize(selected_mask, resized_mask, cv::Size(face_width, face_height));
         

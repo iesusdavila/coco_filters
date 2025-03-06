@@ -14,7 +14,6 @@ cv::Mat NoseFilter::apply_filter(cv::Mat frame, const std::vector<cv::Point2f>& 
         const int LEFT_NOSTRIL = 98;
         const int RIGHT_NOSTRIL = 327;
 
-        // Get nose landmarks
         cv::Point2f nose_tip = landmarks[NOSE_TIP];
         cv::Point2f nose_bridge = landmarks[NOSE_BRIDGE];
         cv::Point2f left_nostril = landmarks[RIGHT_NOSTRIL];
@@ -28,21 +27,18 @@ cv::Mat NoseFilter::apply_filter(cv::Mat frame, const std::vector<cv::Point2f>& 
             return frame;
         }
 
-        // Calculate nose dimensions
         float nose_width = cv::norm(right_nostril - left_nostril);
         float vertical_distance = cv::norm(nose_bridge - nose_tip);
         int nose_height = static_cast<int>(vertical_distance * 1.2f);
 
         if (nose_width < 10 || nose_height < 10) return frame;
 
-        // Prepare asset
         cv::Mat nose_asset = assets[current_asset_idx].clone();
         if (nose_asset.channels() != 4) {
             RCLCPP_ERROR(rclcpp::get_logger("NoseFilter"), "Asset sin canal alpha");
             return frame;
         }
 
-        // Calculate target size
         int target_width = static_cast<int>(nose_width * 1.5f);
         float aspect_ratio = static_cast<float>(nose_asset.rows) / nose_asset.cols;
         int target_height = static_cast<int>(target_width * aspect_ratio);
@@ -52,25 +48,20 @@ cv::Mat NoseFilter::apply_filter(cv::Mat frame, const std::vector<cv::Point2f>& 
         
         cv::resize(nose_asset, nose_asset, cv::Size(target_width, target_height));
 
-        // Calculate rotation angle
         float dx = right_nostril.x - left_nostril.x;
         float dy = right_nostril.y - left_nostril.y;
         double angle = -std::atan2(dy, dx) * 180.0 / CV_PI;
 
-        // Apply rotation
         cv::Mat rotated = rotate_image(nose_asset, angle);
         if (rotated.empty()) return frame;
 
-        // Calculate position
         int pos_x = static_cast<int>(nose_tip.x - rotated.cols / 2);
         int pos_y = static_cast<int>(nose_tip.y - rotated.rows / 2);
 
-        // Validate position
         if (!validate_position(pos_x, pos_y, rotated.size(), frame.size())) {
             return frame;
         }
 
-        // Apply overlay
         optimized_overlay(frame, rotated, pos_x, pos_y);
         return frame;
 
@@ -81,7 +72,6 @@ cv::Mat NoseFilter::apply_filter(cv::Mat frame, const std::vector<cv::Point2f>& 
 }
 
 bool NoseFilter::is_visible(const cv::Point2f& landmark, const cv::Size& frame_size) {
-    // Check if landmark is within central 80% of the frame
     const float MARGIN = 0.1f;
     return (landmark.x > frame_size.width * MARGIN && 
             landmark.x < frame_size.width * (1 - MARGIN) &&
