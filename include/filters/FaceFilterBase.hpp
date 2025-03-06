@@ -9,6 +9,8 @@ protected:
     std::vector<cv::Mat> assets;
     size_t current_asset_idx = 0;
 
+    bool valid_landmark(const cv::Point2f& point);
+
 public:
     size_t getCurrentIndex() const { return current_asset_idx; }
     void setCurrentIndex(size_t idx) { current_asset_idx = idx % assets.size(); }

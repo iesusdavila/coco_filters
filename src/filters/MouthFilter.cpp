@@ -19,10 +19,8 @@ cv::Mat MouthFilter::apply_filter(cv::Mat frame, const std::vector<cv::Point2f>&
         cv::Point2f upper_lip = landmarks[UPPER_LIP];
         cv::Point2f lower_lip = landmarks[LOWER_LIP];
 
-        if (std::isnan(left_corner.x) || std::isinf(left_corner.x) || 
-            std::isnan(right_corner.y) || std::isinf(right_corner.y) ||
-            std::isnan(upper_lip.x) || std::isinf(upper_lip.x) || 
-            std::isnan(lower_lip.y) || std::isinf(lower_lip.y)) {
+        if (valid_landmark(left_corner) || valid_landmark(right_corner) ||
+            valid_landmark(upper_lip) || valid_landmark(lower_lip)) {
             RCLCPP_ERROR(rclcpp::get_logger("MouthFilter"), "Landmarks inválidos (NaN/Inf)");
             return frame;
         }

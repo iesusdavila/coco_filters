@@ -18,11 +18,9 @@ cv::Mat FaceMaskFilter::apply_filter(cv::Mat frame, const std::vector<cv::Point2
         cv::Point2f chin = landmarks[CHIN_BOTTOM];
         cv::Point2f face_left = landmarks[FACE_LEFT];
         cv::Point2f face_right = landmarks[FACE_RIGHT];
-
-        if (std::isnan(forehead.x) || std::isinf(forehead.x) || 
-            std::isnan(chin.y) || std::isinf(chin.y) ||
-            std::isnan(face_left.x) || std::isinf(face_left.x) ||
-            std::isnan(face_right.x) || std::isinf(face_right.x)) {
+        
+        if (valid_landmark(forehead) || valid_landmark(chin) || 
+            valid_landmark(face_left) || valid_landmark(face_right)) {
             RCLCPP_ERROR(rclcpp::get_logger("FaceFilter"), "Landmarks inválidos (NaN/Inf)");
             return frame;
         }

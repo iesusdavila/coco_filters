@@ -19,10 +19,8 @@ cv::Mat NoseFilter::apply_filter(cv::Mat frame, const std::vector<cv::Point2f>& 
         cv::Point2f left_nostril = landmarks[RIGHT_NOSTRIL];
         cv::Point2f right_nostril = landmarks[LEFT_NOSTRIL];
 
-        if (std::isnan(nose_tip.x) || std::isinf(nose_tip.x) || 
-            std::isnan(nose_bridge.y) || std::isinf(nose_bridge.y) ||
-            std::isnan(left_nostril.x) || std::isinf(left_nostril.x) || 
-            std::isnan(right_nostril.y) || std::isinf(right_nostril.y)) {
+        if (valid_landmark(nose_tip) || valid_landmark(nose_bridge) ||
+            valid_landmark(left_nostril) || valid_landmark(right_nostril)) {
             RCLCPP_ERROR(rclcpp::get_logger("NoseFilter"), "Landmarks inválidos (NaN/Inf)");
             return frame;
         }

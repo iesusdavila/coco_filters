@@ -15,8 +15,7 @@ cv::Mat HatFilter::apply_filter(cv::Mat frame, const std::vector<cv::Point2f>& l
         cv::Point2f forehead_left = landmarks[FOREHEAD_LEFT];
         cv::Point2f forehead_right = landmarks[FOREHEAD_RIGHT];
 
-        if (std::isnan(forehead_left.x) || std::isinf(forehead_left.x) || 
-            std::isnan(forehead_right.y) || std::isinf(forehead_right.y)) {
+        if (valid_landmark(forehead_left) || valid_landmark(forehead_right)) {
             RCLCPP_ERROR(rclcpp::get_logger("HatFilter"), "Landmarks inválidos (NaN/Inf)");
             return frame;
         }
@@ -26,7 +25,7 @@ cv::Mat HatFilter::apply_filter(cv::Mat frame, const std::vector<cv::Point2f>& l
         double angle = -std::atan2(dy, dx) * 180.0 / CV_PI;
         float forehead_distance = std::hypot(dx, dy);
         
-        if (forehead_distance < 15.0f) return frame; // Distancia mínima
+        if (forehead_distance < 15.0f) return frame;
 
         cv::Mat hat_asset = assets[current_asset_idx].clone();
         if (hat_asset.channels() != 4) {

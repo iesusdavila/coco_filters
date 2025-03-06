@@ -16,6 +16,10 @@ std::vector<cv::Mat> FaceFilter::load_assets(const std::string& path) {
     return loaded_assets;
 }
 
+bool FaceFilter::valid_landmark(const cv::Point2f& point) {
+    return std::isnan(point.x) || std::isinf(point.x) || std::isnan(point.y) || std::isinf(point.y);
+}
+
 FaceFilter::FaceFilter(const std::string& assets_path) {
     this->assets = load_assets(assets_path);
 }
