@@ -6,60 +6,61 @@
 FaceMaskFilter::FaceMaskFilter(const std::string& assets_path) : FaceFilter(assets_path) {}
 
 cv::Mat FaceMaskFilter::apply_filter(cv::Mat frame, const std::vector<cv::Point2f>& landmarks, const cv::Size& frame_size) {
-    if (frame.empty() || assets.empty() || landmarks.size() < 455) return frame;
+    if (frame.empty() || assets.empty() || landmarks.size() < 468) return frame;
 
     try {
-        const int FOREHEAD_TOP = 10;
-        const int CHIN_BOTTOM = 152;
-        const int FACE_LEFT = 454;
-        const int FACE_RIGHT = 234;
-
-        cv::Point2f forehead = landmarks[FOREHEAD_TOP];
-        cv::Point2f chin = landmarks[CHIN_BOTTOM];
-        cv::Point2f face_left = landmarks[FACE_LEFT];
-        cv::Point2f face_right = landmarks[FACE_RIGHT];
-        
-        if (valid_landmark(forehead) || valid_landmark(chin) || 
-            valid_landmark(face_left) || valid_landmark(face_right)) {
-            RCLCPP_ERROR(rclcpp::get_logger("FaceFilter"), "Landmarks inválidos (NaN/Inf)");
-            return frame;
-        }
-
-        float face_width = cv::norm(face_right - face_left);
-        float face_height = cv::norm(chin - forehead);
-        
-        if (face_width < 50.0f || face_height < 50.0f) return frame;
-
         cv::Mat mask = assets[current_asset_idx].clone();
-        if (mask.channels() != 4) {
+        if (current_asset_idx >= assets.size() || mask.channels() != 4) {
             RCLCPP_ERROR(rclcpp::get_logger("FaceMaskFilter"), "Máscara sin canal alpha");
             return frame;
         }
 
-        float aspect_ratio = static_cast<float>(mask.rows) / mask.cols;
-        int target_width = static_cast<int>(face_width * 1.8f);
-        int target_height = static_cast<int>(target_width * aspect_ratio);
+        const int FACE_LEFT = 234;
+        const int FACE_RIGHT = 454;
+
+        cv::Point2f face_left = landmarks[FACE_LEFT];
+        cv::Point2f face_right = landmarks[FACE_RIGHT];
         
-        target_width = std::clamp(target_width, 100, 1000);
-        target_height = std::clamp(target_height, 100, 1000);
-        
-        cv::resize(mask, mask, cv::Size(target_width, target_height));
-
-        float dx = face_right.x - face_left.x;
-        float dy = face_right.y - face_left.y;
-        double angle = -std::atan2(dy, dx) * 180.0 / CV_PI;
-
-        cv::Mat rotated_mask = rotate_image(mask, angle);
-        if (rotated_mask.empty()) return frame;
-
-        int center_x = static_cast<int>((face_left.x + face_right.x)/2) - rotated_mask.cols/2;
-        int center_y = static_cast<int>((forehead.y + chin.y)/2) - rotated_mask.rows/2;
-
-        if (!validate_position(center_x, center_y, rotated_mask.size(), frame.size())) {
+        if (valid_landmark(face_left) || valid_landmark(face_right)) {
+            RCLCPP_ERROR(rclcpp::get_logger("FaceFilter"), "Landmarks inválidos (NaN/Inf)");
             return frame;
         }
 
-        optimized_overlay(frame, rotated_mask, center_x, center_y);
+        int left_x = static_cast<int>(face_left.x);
+        int left_y = static_cast<int>(face_left.y);
+        int right_x = static_cast<int>(face_right.x);
+        int right_y = static_cast<int>(face_right.y);
+
+        int dx = right_x - left_x;
+        int dy = right_y - left_y;
+        double angle = -std::atan2(dy, dx) * 180.0 / CV_PI;
+        float face_distance = std::hypot(dx, dy);
+
+        if (face_distance < 10 || face_distance > 300) return frame;
+
+        int face_width = static_cast<int>(face_distance * 1.8);
+        face_width = std::clamp(face_width, 100, 1000);
+
+        float aspect_ratio = static_cast<float>(mask.rows) / mask.cols;
+        int face_height = static_cast<int>(face_width * aspect_ratio);
+        face_height = std::clamp(face_height, 100, 1000);
+        
+        cv::Size target_size(face_width, face_height);
+        if (target_size.width <= 0 || target_size.height <= 0) return frame;
+
+        cv::resize(mask, mask, target_size);
+
+        cv::Mat rotated = rotate_image(mask, angle);
+        if (rotated.empty()) return frame;
+
+        int center_x = (left_x + right_x) / 2 - rotated.cols / 2;
+        int center_y = (landmarks[10].y + landmarks[152].y) / 2 - rotated.rows / 2;
+
+        if (!validate_position(center_x, center_y, rotated.size(), frame.size())) {
+            return frame;
+        }
+
+        optimized_overlay(frame, rotated, center_x, center_y);
         return frame;
 
     } catch (const cv::Exception& e) {
