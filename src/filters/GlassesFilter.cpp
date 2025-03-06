@@ -6,7 +6,7 @@
 GlassesFilter::GlassesFilter(const std::string& assets_path) : FaceFilter(assets_path) {}
 
 cv::Mat GlassesFilter::apply_filter(cv::Mat frame, const std::vector<cv::Point2f>& landmarks, const cv::Size& frame_size) {
-    if (frame.empty() || assets.empty() || landmarks.size() < 264) return frame;
+    if (frame.empty() || assets.empty() || landmarks.size() < 468) return frame;
 
     try {
         cv::Mat glasses = assets[current_asset_idx].clone();
@@ -50,17 +50,17 @@ cv::Mat GlassesFilter::apply_filter(cv::Mat frame, const std::vector<cv::Point2f
 
         cv::resize(glasses, glasses, target_size);
 
-        cv::Mat rotated_glasses = rotate_image(glasses, angle);
-        if (rotated_glasses.empty()) return frame;
+        cv::Mat rotated = rotate_image(glasses, angle);
+        if (rotated.empty()) return frame;
 
-        int center_x = (left_x + right_x) / 2 - rotated_glasses.cols / 2;
-        int center_y = (left_y + right_y) / 2 - rotated_glasses.rows / 2;
+        int center_x = (left_x + right_x) / 2 - rotated.cols / 2;
+        int center_y = (left_y + right_y) / 2 - rotated.rows / 2;
 
-        if (!validate_position(center_x, center_y, rotated_glasses.size(), frame.size())) {
+        if (!validate_position(center_x, center_y, rotated.size(), frame.size())) {
             return frame;
         }
 
-        optimized_overlay(frame, rotated_glasses, center_x, center_y);
+        optimized_overlay(frame, rotated, center_x, center_y);
         return frame;
 
     } catch (const cv::Exception& e) {

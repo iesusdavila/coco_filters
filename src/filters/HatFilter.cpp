@@ -6,7 +6,7 @@
 HatFilter::HatFilter(const std::string& assets_path) : FaceFilter(assets_path) {}
 
 cv::Mat HatFilter::apply_filter(cv::Mat frame, const std::vector<cv::Point2f>& landmarks, const cv::Size& frame_size) {
-    if (frame.empty() || assets.empty() || landmarks.size() < 333) return frame;
+    if (frame.empty() || assets.empty() || landmarks.size() < 468) return frame;
 
     try {
         cv::Mat hat = assets[current_asset_idx].clone();
@@ -50,17 +50,17 @@ cv::Mat HatFilter::apply_filter(cv::Mat frame, const std::vector<cv::Point2f>& l
 
         cv::resize(hat, hat, target_size);
 
-        cv::Mat rotated_hat = rotate_image(hat, angle);
-        if (rotated_hat.empty()) return frame;
+        cv::Mat rotated = rotate_image(hat, angle);
+        if (rotated.empty()) return frame;
 
-        int center_x = (left_x + right_x) / 2 - rotated_hat.cols/2;
-        int center_y = (left_y + right_y) / 2 - rotated_hat.rows/2 - (hat_height/4);
+        int center_x = (left_x + right_x) / 2 - rotated.cols/2;
+        int center_y = (left_y + right_y) / 2 - rotated.rows/2 - (hat_height/4);
 
-        if (!validate_position(center_x, center_y, rotated_hat.size(), frame.size())) {
+        if (!validate_position(center_x, center_y, rotated.size(), frame.size())) {
             return frame;
         }
 
-        optimized_overlay(frame, rotated_hat, center_x, center_y);
+        optimized_overlay(frame, rotated, center_x, center_y);
         return frame;
 
     } catch (const cv::Exception& e) {

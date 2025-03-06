@@ -9,52 +9,52 @@ cv::Mat NoseFilter::apply_filter(cv::Mat frame, const std::vector<cv::Point2f>& 
     if (frame.empty() || assets.empty() || landmarks.size() < 468) return frame;
 
     try {
-        const int NOSE_TIP = 4;
-        const int NOSE_BRIDGE = 6;
-        const int LEFT_NOSTRIL = 98;
-        const int RIGHT_NOSTRIL = 327;
-
-        cv::Point2f nose_tip = landmarks[NOSE_TIP];
-        cv::Point2f nose_bridge = landmarks[NOSE_BRIDGE];
-        cv::Point2f left_nostril = landmarks[RIGHT_NOSTRIL];
-        cv::Point2f right_nostril = landmarks[LEFT_NOSTRIL];
-
-        if (valid_landmark(nose_tip) || valid_landmark(nose_bridge) ||
-            valid_landmark(left_nostril) || valid_landmark(right_nostril)) {
-            RCLCPP_ERROR(rclcpp::get_logger("NoseFilter"), "Landmarks inválidos (NaN/Inf)");
-            return frame;
-        }
-
-        float nose_width = cv::norm(right_nostril - left_nostril);
-        float vertical_distance = cv::norm(nose_bridge - nose_tip);
-        int nose_height = static_cast<int>(vertical_distance * 1.2f);
-
-        if (nose_width < 10 || nose_height < 10) return frame;
-
-        cv::Mat nose_asset = assets[current_asset_idx].clone();
-        if (nose_asset.channels() != 4) {
+        cv::Mat nose = assets[current_asset_idx].clone();
+        if (current_asset_idx >= assets.size() || nose.channels() != 4) {
             RCLCPP_ERROR(rclcpp::get_logger("NoseFilter"), "Asset sin canal alpha");
             return frame;
         }
 
-        int target_width = static_cast<int>(nose_width * 1.5f);
-        float aspect_ratio = static_cast<float>(nose_asset.rows) / nose_asset.cols;
-        int target_height = static_cast<int>(target_width * aspect_ratio);
-        
-        target_width = std::clamp(target_width, 20, 200);
-        target_height = std::clamp(target_height, 20, 200);
-        
-        cv::resize(nose_asset, nose_asset, cv::Size(target_width, target_height));
+        const int LEFT_NOSTRIL = 327;
+        const int RIGHT_NOSTRIL = 98;
 
-        float dx = right_nostril.x - left_nostril.x;
-        float dy = right_nostril.y - left_nostril.y;
+        cv::Point2f left_nostril = landmarks[RIGHT_NOSTRIL];
+        cv::Point2f right_nostril = landmarks[LEFT_NOSTRIL];
+
+        if (valid_landmark(left_nostril) || valid_landmark(right_nostril)) {
+            RCLCPP_ERROR(rclcpp::get_logger("NoseFilter"), "Landmarks inválidos (NaN/Inf)");
+            return frame;
+        }
+
+        int left_x = static_cast<int>(left_nostril.x);
+        int left_y = static_cast<int>(left_nostril.y);
+        int right_x = static_cast<int>(right_nostril.x);
+        int right_y = static_cast<int>(right_nostril.y);
+
+        int dx = right_x - left_x;
+        int dy = right_y - left_y;
         double angle = -std::atan2(dy, dx) * 180.0 / CV_PI;
+        float nose_distance = std::hypot(dx, dy);
 
-        cv::Mat rotated = rotate_image(nose_asset, angle);
+        if (nose_distance < 10 || nose_distance > 300) return frame;
+
+        int nose_width = static_cast<int>(nose_distance * 1.5);
+        nose_width = std::clamp(nose_width, 20, 200);
+
+        float aspect_ratio = static_cast<float>(nose.rows) / nose.cols;
+        int nose_height = static_cast<int>(nose_width * aspect_ratio);
+        nose_height = std::clamp(nose_height, 20, 200);
+
+        cv::Size target_size(nose_width, nose_height);
+        if (target_size.width <= 0 || target_size.height <= 0) return frame;
+        
+        cv::resize(nose, nose, target_size);
+
+        cv::Mat rotated = rotate_image(nose, angle);
         if (rotated.empty()) return frame;
 
-        int pos_x = static_cast<int>(nose_tip.x - rotated.cols / 2);
-        int pos_y = static_cast<int>(nose_tip.y - rotated.rows / 2);
+        int pos_x = landmarks[5].x - rotated.cols / 2;
+        int pos_y = landmarks[5].y - rotated.rows / 2;
 
         if (!validate_position(pos_x, pos_y, rotated.size(), frame.size())) {
             return frame;
@@ -67,14 +67,6 @@ cv::Mat NoseFilter::apply_filter(cv::Mat frame, const std::vector<cv::Point2f>& 
         RCLCPP_ERROR(rclcpp::get_logger("NoseFilter"), "Error: %s", e.what());
         return frame;
     }
-}
-
-bool NoseFilter::is_visible(const cv::Point2f& landmark, const cv::Size& frame_size) {
-    const float MARGIN = 0.1f;
-    return (landmark.x > frame_size.width * MARGIN && 
-            landmark.x < frame_size.width * (1 - MARGIN) &&
-            landmark.y > frame_size.height * MARGIN && 
-            landmark.y < frame_size.height * (1 - MARGIN));
 }
 
 bool NoseFilter::validate_position(int x, int y, const cv::Size& asset_size, const cv::Size& frame_size) {
