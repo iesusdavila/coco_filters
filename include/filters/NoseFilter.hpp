@@ -6,7 +6,4 @@ class NoseFilter : public FaceFilter {
 public:
     NoseFilter(const std::string& assets_path);
     cv::Mat apply_filter(cv::Mat frame, const std::vector<cv::Point2f>& landmarks, const cv::Size& frame_size) override;
-
-private:
-    bool validate_position(int x, int y, const cv::Size& asset_size, const cv::Size& frame_size);
 };

@@ -68,13 +68,3 @@ cv::Mat FaceMaskFilter::apply_filter(cv::Mat frame, const std::vector<cv::Point2
         return frame;
     }
 }
-
-bool FaceMaskFilter::validate_position(int x, int y, const cv::Size& asset_size, const cv::Size& frame_size) {
-    const float PADDING_FACTOR = 0.3f;
-    return (x > -asset_size.width * PADDING_FACTOR) &&
-           (y > -asset_size.height * PADDING_FACTOR) &&
-           (x + asset_size.width < frame_size.width * (1 + PADDING_FACTOR)) &&
-           (y + asset_size.height < frame_size.height * (1 + PADDING_FACTOR)) &&
-           (asset_size.width > 50) &&  
-           (asset_size.height > 50);
-}

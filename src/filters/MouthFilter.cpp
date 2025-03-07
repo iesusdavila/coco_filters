@@ -68,11 +68,3 @@ cv::Mat MouthFilter::apply_filter(cv::Mat frame, const std::vector<cv::Point2f>&
         return frame;
     }
 }
-
-bool MouthFilter::validate_position(int x, int y, const cv::Size& asset_size, const cv::Size& frame_size) {
-    const float PADDING_FACTOR = 0.2f;
-    return (x > -asset_size.width * PADDING_FACTOR) &&
-           (y > -asset_size.height * PADDING_FACTOR) &&
-           (x + asset_size.width < frame_size.width * (1 + PADDING_FACTOR)) &&
-           (y + asset_size.height < frame_size.height * (1 + PADDING_FACTOR));
-}

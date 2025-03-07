@@ -10,6 +10,7 @@ protected:
     size_t current_asset_idx = 0;
 
     bool valid_landmark(const cv::Point2f& point);
+    bool validate_position(int x, int y, const cv::Size& asset_size, const cv::Size& frame_size);
 
 public:
     size_t getCurrentIndex() const { return current_asset_idx; }
