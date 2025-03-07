@@ -9,8 +9,8 @@ protected:
     std::vector<cv::Mat> assets;
     size_t current_asset_idx = 0;
 
-    bool valid_landmark(const cv::Point2f& point);
-    bool validate_position(int x, int y, const cv::Size& asset_size, const cv::Size& frame_size);
+    bool validLandmark(const cv::Point2f& point);
+    bool validatePosition(int x, int y, const cv::Size& asset_size, const cv::Size& frame_size);
 
 public:
     struct FilterParams {
@@ -30,10 +30,10 @@ public:
     void incrementIndex() { current_asset_idx = (current_asset_idx + 1) % assets.size(); }
     void decrementIndex() { current_asset_idx = (current_asset_idx - 1 + assets.size()) % assets.size(); }
 
-    std::vector<cv::Mat> load_assets(const std::string& path);
-    cv::Mat apply_filter_common(cv::Mat frame, const std::vector<cv::Point2f>& landmarks, const cv::Size& frame_size);
-    cv::Mat rotate_image(const cv::Mat& image, double angle);
-    void optimized_overlay(cv::Mat& bg, const cv::Mat& overlay, int x, int y);
+    std::vector<cv::Mat> loadAssets(const std::string& path);
+    cv::Mat applyFilterCommon(cv::Mat frame, const std::vector<cv::Point2f>& landmarks, const cv::Size& frame_size);
+    cv::Mat rotateImage(const cv::Mat& image, double angle);
+    void optimizedOverlay(cv::Mat& bg, const cv::Mat& overlay, int x, int y);
 
     FaceFilter() = default;
     explicit FaceFilter(const std::string& assets_path);
@@ -42,7 +42,7 @@ public:
     virtual FilterParams getFilterParams() const = 0;
     virtual std::pair<int, int> calculatePosition(const cv::Mat& rotated_asset, const std::vector<cv::Point2f>& landmarks) const = 0;
 
-    virtual cv::Mat apply_filter(cv::Mat frame, const std::vector<cv::Point2f>& landmarks, const cv::Size& frame_size) {
-        return apply_filter_common(frame, landmarks, frame_size);
+    virtual cv::Mat applyFilter(cv::Mat frame, const std::vector<cv::Point2f>& landmarks, const cv::Size& frame_size) {
+        return applyFilterCommon(frame, landmarks, frame_size);
     }
 };

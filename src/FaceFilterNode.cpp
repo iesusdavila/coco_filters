@@ -80,12 +80,12 @@ private:
                 std::lock_guard<std::mutex> lock(mutex_);
                 cv::flip(frame, frame, 1);
                 if(mask_mode_) {
-                    frame = face_mask_filter_->apply_filter(frame, landmarks, frame.size());
+                    frame = face_mask_filter_->applyFilter(frame, landmarks, frame.size());
                 } else {
-                    frame = glasses_filter_->apply_filter(frame, landmarks, frame.size());
-                    frame = mouth_filter_->apply_filter(frame, landmarks, frame.size());
-                    frame = nose_filter_->apply_filter(frame, landmarks, frame.size());
-                    frame = hat_filter_->apply_filter(frame, landmarks, frame.size());
+                    frame = glasses_filter_->applyFilter(frame, landmarks, frame.size());
+                    frame = mouth_filter_->applyFilter(frame, landmarks, frame.size());
+                    frame = nose_filter_->applyFilter(frame, landmarks, frame.size());
+                    frame = hat_filter_->applyFilter(frame, landmarks, frame.size());
                 }
             }
             

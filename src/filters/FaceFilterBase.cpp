@@ -5,7 +5,7 @@
 using namespace cv;
 namespace fs = std::filesystem;
 
-std::vector<cv::Mat> FaceFilter::load_assets(const std::string& path) {
+std::vector<cv::Mat> FaceFilter::loadAssets(const std::string& path) {
     std::vector<cv::Mat> loaded_assets;
     for (const auto& entry : fs::directory_iterator(path)) {
         Mat img = imread(entry.path().string(), IMREAD_UNCHANGED);
@@ -16,11 +16,11 @@ std::vector<cv::Mat> FaceFilter::load_assets(const std::string& path) {
     return loaded_assets;
 }
 
-bool FaceFilter::valid_landmark(const cv::Point2f& point) {
+bool FaceFilter::validLandmark(const cv::Point2f& point) {
     return std::isnan(point.x) || std::isinf(point.x) || std::isnan(point.y) || std::isinf(point.y);
 }
 
-bool FaceFilter::validate_position(int x, int y, const cv::Size& asset_size, const cv::Size& frame_size) {
+bool FaceFilter::validatePosition(int x, int y, const cv::Size& asset_size, const cv::Size& frame_size) {
     const float PADDING_FACTOR = 0.3f;
     return (x > -asset_size.width * PADDING_FACTOR) &&
            (y > -asset_size.height * PADDING_FACTOR) &&
@@ -31,10 +31,10 @@ bool FaceFilter::validate_position(int x, int y, const cv::Size& asset_size, con
 }
 
 FaceFilter::FaceFilter(const std::string& assets_path) {
-    this->assets = load_assets(assets_path);
+    this->assets = loadAssets(assets_path);
 }
 
-cv::Mat FaceFilter::rotate_image(const cv::Mat& image, double angle) {
+cv::Mat FaceFilter::rotateImage(const cv::Mat& image, double angle) {
     if (image.empty() || angle > 360.0 || angle < -360.0) return cv::Mat();
     
     cv::Point2f center(image.cols / 2.0f, image.rows / 2.0f);
@@ -55,7 +55,7 @@ cv::Mat FaceFilter::rotate_image(const cv::Mat& image, double angle) {
     return rotated;
 }
 
-void FaceFilter::optimized_overlay(cv::Mat& bg, const cv::Mat& overlay, int x, int y) {
+void FaceFilter::optimizedOverlay(cv::Mat& bg, const cv::Mat& overlay, int x, int y) {
     if (overlay.empty() || bg.empty() ||
         x >= bg.cols || y >= bg.rows ||
         x + overlay.cols <= 0 || y + overlay.rows <= 0) {
@@ -112,7 +112,7 @@ void FaceFilter::optimized_overlay(cv::Mat& bg, const cv::Mat& overlay, int x, i
     cv::merge(bg_channels, bg_roi);
 }
 
-cv::Mat FaceFilter::apply_filter_common(
+cv::Mat FaceFilter::applyFilterCommon(
     cv::Mat frame, 
     const std::vector<cv::Point2f>& landmarks, 
     const cv::Size& frame_size
@@ -130,7 +130,7 @@ cv::Mat FaceFilter::apply_filter_common(
         cv::Point2f left_point = landmarks[left_idx];
         cv::Point2f right_point = landmarks[right_idx];
 
-        if (valid_landmark(left_point) || valid_landmark(right_point)) {
+        if (validLandmark(left_point) || validLandmark(right_point)) {
             RCLCPP_ERROR(rclcpp::get_logger("FaceFilter"), "Landmarks inválidos (NaN/Inf)");
             return frame;
         }
@@ -152,16 +152,16 @@ cv::Mat FaceFilter::apply_filter_common(
 
         cv::resize(asset, asset, cv::Size(asset_width, asset_height));
 
-        cv::Mat rotated = rotate_image(asset, angle);
+        cv::Mat rotated = rotateImage(asset, angle);
         if (rotated.empty()) return frame;
 
         auto [center_x, center_y] = calculatePosition(rotated, landmarks);
 
-        if (!validate_position(center_x, center_y, rotated.size(), frame_size)) {
+        if (!validatePosition(center_x, center_y, rotated.size(), frame_size)) {
             return frame;
         }
 
-        optimized_overlay(frame, rotated, center_x, center_y);
+        optimizedOverlay(frame, rotated, center_x, center_y);
         return frame;
 
     } catch (const cv::Exception& e) {
