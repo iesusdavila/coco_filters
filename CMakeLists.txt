@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.8)
-project(buddy_filters)
+project(coco_filters)
 
 # ========== Configuración común ==========
 find_package(ament_cmake REQUIRED)
@@ -20,7 +20,7 @@ find_package(rclcpp REQUIRED)
 find_package(OpenCV REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(std_msgs REQUIRED)
-find_package(buddy_interfaces REQUIRED)
+find_package(coco_interfaces REQUIRED)
 find_package(cv_bridge REQUIRED)
 find_package(message_filters REQUIRED)
 find_package(ament_index_cpp REQUIRED) 
@@ -68,7 +68,7 @@ ament_target_dependencies(face_filter_node
   sensor_msgs
   std_msgs
   OpenCV
-  buddy_interfaces
+  coco_interfaces
   cv_bridge
   message_filters
   ament_index_cpp
@@ -80,7 +80,7 @@ ament_target_dependencies(animal_filter_mask
   sensor_msgs
   std_msgs
   OpenCV
-  buddy_interfaces
+  coco_interfaces
   cv_bridge
   message_filters
   ament_index_cpp
@@ -111,7 +111,7 @@ ament_export_dependencies(
   std_msgs
   geometry_msgs
   OpenCV
-  buddy_interfaces
+  coco_interfaces
   cv_bridge
   message_filters
   ament_index_cpp
