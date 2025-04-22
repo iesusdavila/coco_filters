@@ -4,7 +4,7 @@
 #include "message_filters/subscriber.h"
 #include "message_filters/sync_policies/approximate_time.h"
 #include "ament_index_cpp/get_package_share_directory.hpp"
-#include "buddy_interfaces/msg/face_landmarks.hpp"
+#include "coco_interfaces/msg/face_landmarks.hpp"
 #include "filters/GlassesFilter.hpp"
 #include "filters/MouthFilter.hpp"
 #include "filters/NoseFilter.hpp"
@@ -18,7 +18,7 @@
 using namespace std::chrono_literals;
 using namespace message_filters;
 using ImageMsg = sensor_msgs::msg::Image;
-using FaceLandmarks = buddy_interfaces::msg::FaceLandmarks;
+using FaceLandmarks = coco_interfaces::msg::FaceLandmarks;
 typedef sync_policies::ApproximateTime<ImageMsg, FaceLandmarks> ApproximateTimePolicy;
 
 class FaceFilterNode : public rclcpp::Node {
@@ -28,7 +28,7 @@ public:
                       running_(true) {
         auto qos = rclcpp::QoS(rclcpp::KeepLast(10)).reliable();
         
-        std::string assets_path = ament_index_cpp::get_package_share_directory("buddy_filters") + "/imgs";
+        std::string assets_path = ament_index_cpp::get_package_share_directory("coco_filters") + "/imgs";
         glasses_filter_ = std::make_shared<GlassesFilter>(assets_path + "/glasses");
         mouth_filter_ = std::make_shared<MouthFilter>(assets_path + "/mouths");
         nose_filter_ = std::make_shared<NoseFilter>(assets_path + "/noses");

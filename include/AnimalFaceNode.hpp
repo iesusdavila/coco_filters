@@ -6,14 +6,14 @@
 #include <message_filters/subscriber.h>
 #include <message_filters/sync_policies/approximate_time.h>
 #include <message_filters/synchronizer.h>
-#include <buddy_interfaces/msg/face_landmarks.hpp>
+#include <coco_interfaces/msg/face_landmarks.hpp>
 #include <atomic>
 #include <map>
 
 using namespace std::chrono_literals;
 using namespace message_filters;
 using ImageMsg = sensor_msgs::msg::Image;
-using FaceLandmarks = buddy_interfaces::msg::FaceLandmarks;
+using FaceLandmarks = coco_interfaces::msg::FaceLandmarks;
 typedef sync_policies::ApproximateTime<ImageMsg, FaceLandmarks> ApproximateTimePolicy;
 
 class AnimalFaceNode : public rclcpp::Node {
