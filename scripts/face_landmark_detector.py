@@ -3,7 +3,7 @@ import rclpy
 from rclpy.node import Node
 from sensor_msgs.msg import Image
 from geometry_msgs.msg import Point
-from buddy_interfaces.msg import FaceLandmarks
+from coco_interfaces.msg import FaceLandmarks
 import mediapipe as mp
 from cv_bridge import CvBridge
 import cv2
