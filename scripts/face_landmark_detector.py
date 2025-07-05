@@ -3,7 +3,7 @@ import rclpy
 from rclpy.node import Node
 from sensor_msgs.msg import Image
 from geometry_msgs.msg import Point
-from coco_interfaces.msg import FaceLandmarks
+from coco_interfaces.msg import Landmarks
 import mediapipe as mp
 from cv_bridge import CvBridge
 import cv2
@@ -13,7 +13,7 @@ class FaceLandmarkPublisher(Node):
         super().__init__('face_landmark_publisher')
         self.bridge = CvBridge()
         self.sub = self.create_subscription(Image, 'image_raw', self.image_callback, 10)
-        self.pub = self.create_publisher(FaceLandmarks, 'face_landmarks', 10)
+        self.pub = self.create_publisher(Landmarks, 'face_landmarks', 10)
         
         self.face_mesh = mp.solutions.face_mesh.FaceMesh(
             static_image_mode=False,
@@ -28,7 +28,7 @@ class FaceLandmarkPublisher(Node):
             results = self.face_mesh.process(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
             
             if results.multi_face_landmarks:
-                landmarks_msg = FaceLandmarks()
+                landmarks_msg = Landmarks()
                 landmarks_msg.header = msg.header
                 for landmark in results.multi_face_landmarks[0].landmark:
                     point = Point()
