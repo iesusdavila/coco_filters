@@ -6,15 +6,15 @@
 #include <message_filters/subscriber.h>
 #include <message_filters/sync_policies/approximate_time.h>
 #include <message_filters/synchronizer.h>
-#include <coco_interfaces/msg/face_landmarks.hpp>
+#include <coco_interfaces/msg/landmarks.hpp>
 #include <atomic>
 #include <map>
 
 using namespace std::chrono_literals;
 using namespace message_filters;
 using ImageMsg = sensor_msgs::msg::Image;
-using FaceLandmarks = coco_interfaces::msg::FaceLandmarks;
-typedef sync_policies::ApproximateTime<ImageMsg, FaceLandmarks> ApproximateTimePolicy;
+using Landmarks = coco_interfaces::msg::Landmarks;
+typedef sync_policies::ApproximateTime<ImageMsg, Landmarks> ApproximateTimePolicy;
 
 class AnimalFaceNode : public rclcpp::Node {
 public:
@@ -27,7 +27,7 @@ public:
     
 private:
     void callback(const ImageMsg::ConstSharedPtr& img_msg, 
-                 const FaceLandmarks::ConstSharedPtr& landmarks_msg);
+                 const Landmarks::ConstSharedPtr& landmarks_msg);
     void keyboard_listener();
     void change_filter(const std::string& animal);
 
@@ -44,6 +44,6 @@ private:
     AnimalFilter current_filter_;
     image_transport::Publisher image_pub_;
     message_filters::Subscriber<ImageMsg> image_sub_;
-    message_filters::Subscriber<FaceLandmarks> landmarks_sub_;
+    message_filters::Subscriber<Landmarks> landmarks_sub_;
     std::shared_ptr<message_filters::Synchronizer<ApproximateTimePolicy>> sync_;
 };
