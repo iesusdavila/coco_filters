@@ -22,7 +22,7 @@ AnimalFaceNode::AnimalFaceNode() : Node("animal_face_node"), current_filter_("be
 }
 
 void AnimalFaceNode::callback(const ImageMsg::ConstSharedPtr& img_msg, 
-                            const FaceLandmarks::ConstSharedPtr& landmarks_msg) {
+                            const Landmarks::ConstSharedPtr& landmarks_msg) {
     try {
         cv::Mat yuv_image(img_msg->height, img_msg->width, CV_8UC2, 
                         const_cast<uchar*>(img_msg->data.data()));

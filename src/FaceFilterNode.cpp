@@ -4,7 +4,7 @@
 #include "message_filters/subscriber.h"
 #include "message_filters/sync_policies/approximate_time.h"
 #include "ament_index_cpp/get_package_share_directory.hpp"
-#include "coco_interfaces/msg/face_landmarks.hpp"
+#include "coco_interfaces/msg/landmarks.hpp"
 #include "filters/GlassesFilter.hpp"
 #include "filters/MouthFilter.hpp"
 #include "filters/NoseFilter.hpp"
@@ -18,8 +18,8 @@
 using namespace std::chrono_literals;
 using namespace message_filters;
 using ImageMsg = sensor_msgs::msg::Image;
-using FaceLandmarks = coco_interfaces::msg::FaceLandmarks;
-typedef sync_policies::ApproximateTime<ImageMsg, FaceLandmarks> ApproximateTimePolicy;
+using Landmarks = coco_interfaces::msg::Landmarks;
+typedef sync_policies::ApproximateTime<ImageMsg, Landmarks> ApproximateTimePolicy;
 
 class FaceFilterNode : public rclcpp::Node {
 public:
@@ -62,7 +62,7 @@ public:
 
 private:
     void callback(const ImageMsg::ConstSharedPtr& img_msg, 
-                  const FaceLandmarks::ConstSharedPtr& landmarks_msg) {
+                  const Landmarks::ConstSharedPtr& landmarks_msg) {
         try {
             cv::Mat yuv_image(img_msg->height, img_msg->width, CV_8UC2, const_cast<uchar*>(img_msg->data.data()));
             cv::Mat frame;
@@ -174,7 +174,7 @@ private:
     
     image_transport::Publisher image_pub_;
     Subscriber<ImageMsg> image_sub_;
-    Subscriber<FaceLandmarks> landmarks_sub_;
+    Subscriber<Landmarks> landmarks_sub_;
     std::shared_ptr<message_filters::Synchronizer<ApproximateTimePolicy>> sync_;
 };
 
